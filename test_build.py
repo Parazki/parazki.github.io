@@ -166,7 +166,8 @@ class Bauen(unittest.TestCase):
         self.assertNotIn("Umami", (ziel_ohne / "datenschutz" / "index.html").read_text(encoding="utf-8"))
         index = (ziel_mit / "index.html").read_text(encoding="utf-8")
         self.assertIn('data-website-id="1234-abcd"', index)
-        self.assertIn('data-domains="localhost:8000"', index)
+        domain = build.basis_url(mit).split("://", 1)[-1].split("/", 1)[0]
+        self.assertIn(f'data-domains="{domain}"', index)
         self.assertIn("Besucherstatistik (Umami)", (ziel_mit / "datenschutz" / "index.html").read_text(encoding="utf-8"))
 
     def test_kein_html_injection_aus_daten(self):
