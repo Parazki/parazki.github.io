@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+"""Tests für build.py – nur Standardbibliothek. Aufruf: python test_build.py"""
+import datetime
+import json
+import re
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import build  # noqa: E402
+
+
+class Rechnen(unittest.TestCase):
+    def test_dauerbetrieb(self):
+        g = {"leistung_w": 18, "stunden": 24, "nutzungen_woche": 7}
+        self.assertAlmostEqual(build.jahresverbrauch_kwh(g), 18 * 24 * 7 * 52 / 1000)
+
+    def test_standby_fuellt_restliche_stunden(self):
+        g = {"leistung_w": 100, "stunden": 1, "nutzungen_woche": 7, "standby_w": 1}
+        nutz = 7 * 52
+        self.assertAlmostEqual(build.jahresverbrauch_kwh(g), (100 * nutz + 1 * (8760 - nutz)) / 1000)
+        self.assertAlmostEqual(build.standby_kwh(g), (8760 - nutz) / 1000)
+
+    def test_saison(self):
+        g = {"leistung_w": 2000, "stunden": 2, "nutzungen_woche": 7, "wochen_jahr": 20}
+        self.assertAlmostEqual(build.jahresverbrauch_kwh(g), 2000 * 2 * 7 * 20 / 1000)
+
+    def test_nie_mehr_als_ein_jahr(self):
+        g = {"leistung_w": 10, "stunden": 24, "nutzungen_woche": 14, "standby_w": 5}
+        self.assertAlmostEqual(build.jahresverbrauch_kwh(g), 10 * 8760 / 1000)
+
+    def test_deutsche_zahlen(self):
+        self.assertEqual(build.zahl(1234.5, 1), "1.234,5")
+        self.assertEqual(build.euro(55.123), "55,12 €")
+        self.assertEqual(build.euro(1234.4), "1.234 €")
+
+
+class BasisUrl(unittest.TestCase):
+    def setUp(self):
+        self.alt = build.os.environ.pop("GITHUB_REPOSITORY", None)
+
+    def tearDown(self):
+        build.os.environ.pop("GITHUB_REPOSITORY", None)
+        if self.alt is not None:
+            build.os.environ["GITHUB_REPOSITORY"] = self.alt
+
+    def test_projektseite(self):
+        build.os.environ["GITHUB_REPOSITORY"] = "MaxMuster/stromfresser-check"
+        self.assertEqual(build.basis_url({"base_url": "auto"}), "https://maxmuster.github.io/stromfresser-check")
+
+    def test_nutzerseite(self):
+        build.os.environ["GITHUB_REPOSITORY"] = "MaxMuster/maxmuster.github.io"
+        self.assertEqual(build.basis_url({"base_url": "auto"}), "https://maxmuster.github.io")
+
+    def test_eigene_domain(self):
+        self.assertEqual(build.basis_url({"base_url": "https://example.de/"}), "https://example.de")
+
+
+class Bauen(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.ziel = Path(cls.tmp.name) / "dist"
+        cls.ctx, cls.anzahl = build.baue(cls.ziel, heute=datetime.date(2026, 10, 11))
+        cls.geraete = build.lade_geraete()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def test_jede_geraeteseite_existiert(self):
+        for g in self.geraete:
+            datei = self.ziel / "geraet" / g["slug"] / "index.html"
+            self.assertTrue(datei.exists(), g["slug"])
+            text = datei.read_text(encoding="utf-8")
+            self.assertIn("<h1>Wie viel Strom verbraucht", text)
+            self.assertIn('data-rechner="geraet"', text)
+
+    def test_grundseiten(self):
+        for pfad in ("index.html", "balkonkraftwerk/index.html", "impressum/index.html",
+                     "datenschutz/index.html", "404.html", "sitemap.xml", "robots.txt",
+                     "assets/app.js", "assets/style.css", ".nojekyll"):
+            self.assertTrue((self.ziel / pfad).exists(), pfad)
+
+    def test_sitemap_vollstaendig(self):
+        xml = (self.ziel / "sitemap.xml").read_text(encoding="utf-8")
+        self.assertEqual(xml.count("<url>"), len(self.geraete) + 2)
+        self.assertNotIn("impressum", xml)
+
+    def test_faq_jsonld_gueltig(self):
+        text = (self.ziel / "geraet" / "kuehlschrank" / "index.html").read_text(encoding="utf-8")
+        m = re.search(r'<script type="application/ld\+json">(.*?)</script>', text, re.S)
+        daten = json.loads(m.group(1))
+        self.assertEqual(daten["@type"], "FAQPage")
+        self.assertEqual(len(daten["mainEntity"]), 3)
+
+    def test_relative_links_funktionieren(self):
+        text = (self.ziel / "geraet" / "kuehlschrank" / "index.html").read_text(encoding="utf-8")
+        self.assertIn('href="../../assets/style.css"', text)
+        for ziel in re.findall(r'href="(\.\./\.\./geraet/[^"]+)"', text):
+            self.assertTrue((self.ziel / "geraet" / "kuehlschrank" / ziel / "index.html").resolve().exists(), ziel)
+
+    def test_kein_html_injection_aus_daten(self):
+        for g in self.geraete:
+            for feld in ("name", "hinweis", "tipp"):
+                self.assertNotIn("<", g[feld], f"{g['slug']}.{feld}")
+
+    def test_strict_bricht_ohne_impressum_ab(self):
+        cfg = json.loads((build.ROOT / "config.json").read_text(encoding="utf-8"))
+        if build.fehlende_pflichtangaben(cfg):
+            with self.assertRaises(SystemExit):
+                build.baue(Path(self.tmp.name) / "strict", strict=True)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=1)

@@ -1,0 +1,14 @@
+{
+  "site_name": "Stromfresser-Check",
+  "base_url": "auto",
+  "strompreis_eur_kwh": 0.35,
+  "amazon_partner_tag": "",
+  "google_site_verification": "",
+  "adsense_client_id": "",
+  "impressum": {
+    "name": "Robin Geringer",
+    "strasse": "Gotenstraße 39",
+    "plz_ort": "74196 Neuenstadt am Kocher",
+    "email": "robin.geringer@web.de"
+  }
+}
