@@ -28,6 +28,12 @@ jobs:
 
       - name: Website bauen
         run: python3 build.py --strict
+        env:
+          # Optional: Impressum aus Repository-Secrets statt aus config.json
+          IMPRESSUM_NAME: ${{ secrets.IMPRESSUM_NAME }}
+          IMPRESSUM_STRASSE: ${{ secrets.IMPRESSUM_STRASSE }}
+          IMPRESSUM_PLZ_ORT: ${{ secrets.IMPRESSUM_PLZ_ORT }}
+          IMPRESSUM_EMAIL: ${{ secrets.IMPRESSUM_EMAIL }}
 
       # GitHub pausiert geplante Läufe nach 60 Tagen ohne Aktivität im Repository.
       # Ein kleiner Monats-Commit hält den Zeitplan dauerhaft am Leben.

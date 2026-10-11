@@ -275,6 +275,170 @@
     rechner.push(r);
   });
 
+  // ------------------------------------------------ Standby-Rechner
+  $$('form[data-rechner="standby"]').forEach((form) => {
+    const aus = (k) => $(`[data-aus="${k}"]`, form);
+    const felder = $$('input[type="hidden"][data-watt]', form);
+    const r = {
+      rechne() {
+        const watt = felder.reduce((s, f) => s + (parseFloat(f.value) || 0) * parseFloat(f.dataset.watt), 0);
+        const kwh = watt * wert(form, "stunden") * 365 / 1000;
+        const p = preis();
+        zeigeZahl(aus("euro_jahr"), kwh * p, euro);
+        aus("watt").textContent = zahl(watt, 1) + " W";
+        aus("kwh_jahr").textContent = zahl(kwh) + " kWh";
+        aus("euro_10").textContent = euro(kwh * p * 10);
+      },
+    };
+    felder.forEach((f) => {
+      const zeile = f.closest(".standby-zeile");
+      const ausgabe = $("output", zeile);
+      const zeige = () => { ausgabe.textContent = f.value; zeile.classList.toggle("an", +f.value > 0); };
+      $$("button[data-schritt]", zeile).forEach((b) => b.addEventListener("click", () => {
+        f.value = Math.max(0, Math.min(20, (+f.value || 0) + +b.dataset.schritt));
+        zeige(); vibriere(8); r.rechne();
+      }));
+      zeige();
+    });
+    verbindeRegler(form, () => r.rechne());
+    form.addEventListener("input", () => r.rechne());
+    r.rechne();
+    rechner.push(r);
+  });
+
+  // ------------------------------------------------ Austausch-Rechner mit 10-Jahres-Bilanz
+  $$('form[data-rechner="austausch"]').forEach((form) => {
+    const aus = (k) => $(`[data-aus="${k}"]`, form);
+    const bilanz = $("[data-bilanz]");
+    const r = {
+      rechne() {
+        const ersparnis = Math.max(0, wert(form, "alt") - wert(form, "neu")) * preis();
+        const kosten = wert(form, "kosten");
+        zeigeZahl(aus("ersparnis"), ersparnis, euro);
+        aus("amort").textContent = ersparnis > 0 ? zahl(kosten / ersparnis, 1) + " Jahren" : "–";
+        const zehn = ersparnis * 10 - kosten;
+        aus("bilanz").textContent = (zehn < 0 ? "−" : "+") + euro(Math.abs(zehn));
+        if (!bilanz) return;
+        const werte = Array.from({ length: 10 }, (_, i) => ersparnis * (i + 1) - kosten);
+        const hoch = Math.max(0, ...werte), tief = Math.min(0, ...werte);
+        const spanne = (hoch - tief) || 1;
+        const null_ = hoch / spanne * 100;
+        if (!bilanz.children.length) {
+          bilanz.innerHTML = werte.map((_, i) => `<div class="bilanz-spalte"><span class="bilanz-balken"></span><span class="bilanz-jahr">${i + 1}</span></div>`).join("")
+            + '<span class="bilanz-null"></span>';
+        }
+        $$(".bilanz-spalte", bilanz).forEach((sp, i) => {
+          const v = werte[i];
+          const b = $(".bilanz-balken", sp);
+          b.className = "bilanz-balken " + (v >= 0 ? "positiv" : "negativ");
+          b.style.top = (v >= 0 ? (hoch - v) / spanne * 100 : null_) + "%";
+          b.style.height = Math.max(0.6, Math.abs(v) / spanne * 100) + "%";
+          sp.title = `Jahr ${i + 1}: ${v < 0 ? "−" : "+"}${euro(Math.abs(v))}`;
+        });
+        $(".bilanz-null", bilanz).style.top = `calc(16px + (100% - 50px) * ${null_ / 100})`;
+      },
+    };
+    $$('input[name="vorlage"]', form).forEach((radio) => radio.addEventListener("change", () => {
+      form.elements.alt.value = radio.dataset.alt;
+      form.elements.neu.value = radio.dataset.neu;
+      form.elements.kosten.value = radio.dataset.kosten;
+      $$(".schieber[data-fuer]", form).forEach((s) => s._sync());
+      vibriere(8);
+      r.rechne();
+    }));
+    verbindeRegler(form, () => r.rechne());
+    form.addEventListener("input", (ev) => {
+      if (ev.target.name === "preis") { setzePreis(wert(form, "preis")); return; }
+      r.rechne();
+    });
+    r.rechne();
+    rechner.push(r);
+  });
+
+  // ------------------------------------------------ Zählerstand-Rechner
+  $$('form[data-rechner="zaehler"]').forEach((form) => {
+    const aus = (k) => $(`[data-aus="${k}"]`, form);
+    const held = $("[data-zaehler-ergebnis]", form);
+    const meldung = aus("meldung");
+    const r = {
+      rechne() {
+        const t1 = new Date(form.elements.datum_alt.value), t2 = new Date(form.elements.datum_neu.value);
+        const tage = Math.round((t2 - t1) / 86400000);
+        const verbrauch = wert(form, "neu") - wert(form, "alt");
+        const fehler = !(tage > 0) ? "Das zweite Datum muss nach dem ersten liegen."
+          : !(verbrauch > 0) ? "Der aktuelle Zählerstand muss größer sein als der erste." : "";
+        meldung.hidden = !fehler;
+        meldung.textContent = fehler;
+        if (fehler) { held.classList.remove("nachzahlung", "guthaben"); return; }
+        const proTag = verbrauch / tage, jahr = proTag * 365;
+        const kosten = jahr * preis() + wert(form, "grund") * 12;
+        const diff = kosten - wert(form, "abschlag") * 12;
+        held.classList.toggle("nachzahlung", diff > 0);
+        held.classList.toggle("guthaben", diff <= 0);
+        aus("label").textContent = diff > 0 ? "Voraussichtliche Nachzahlung" : "Voraussichtliches Guthaben";
+        zeigeZahl(aus("differenz"), Math.abs(diff), euro);
+        aus("verbrauch").textContent = zahl(verbrauch) + " kWh";
+        aus("tage").textContent = zahl(tage);
+        aus("pro_tag").textContent = zahl(proTag, 1) + " kWh";
+        aus("jahr").textContent = zahl(jahr) + " kWh";
+        aus("kosten").textContent = euro(kosten);
+      },
+    };
+    form.addEventListener("input", (ev) => {
+      if (ev.target.name === "preis") { setzePreis(wert(form, "preis")); return; }
+      r.rechne();
+    });
+    form.addEventListener("change", () => r.rechne());
+    r.rechne();
+    rechner.push(r);
+  });
+
+  // ------------------------------------------------ Scroll-Geschichten (Apple-Stil) & Lesefortschritt
+  const geschichten = $$("[data-story]");
+  const lesebalken = $("[data-lesefortschritt]");
+  if (geschichten.length && !BEWEGUNG_AUS) {
+    geschichten.forEach((st) => {
+      st.classList.add("lebendig");
+      $$("[data-story-zahl]", st).forEach((z) => { z._endtext = z.textContent; z.textContent = "0"; });
+    });
+  }
+  let scrollGeplant = false;
+  function scrollBild() {
+    scrollGeplant = false;
+    const vh = innerHeight;
+    geschichten.forEach((st) => {
+      if (!st.classList.contains("lebendig")) return;
+      const box = st.getBoundingClientRect();
+      if (box.bottom < -vh || box.top > vh * 2) return;
+      const p = Math.min(1, Math.max(0, -box.top / Math.max(1, box.height - vh)));
+      const schritte = $$(".story-schritt", st);
+      const n = schritte.length;
+      const i = Math.min(n - 1, Math.floor(p * n * 0.999));
+      st.style.setProperty("--p", p.toFixed(4));
+      if (st.dataset.aktiv !== String(i)) {
+        st.dataset.aktiv = String(i);
+        schritte.forEach((s, k) => s.classList.toggle("aktiv", k === i));
+        $$(".story-punkte i", st).forEach((d, k) => d.classList.toggle("aktiv", k === i));
+        $$("[data-story-zahl]", st).forEach((z) => {
+          const ziel = parseFloat(z.dataset.storyZahl);
+          const kwh = z._endtext && z._endtext.includes("kWh") ? " kWh" : "";
+          if (i === n - 1) zeigeZahl(z, ziel, (x) => zahl(Math.round(x)) + kwh);
+          else { z._wert = undefined; z.textContent = "0" + kwh; }
+        });
+      }
+    });
+    if (lesebalken) {
+      const h = document.documentElement.scrollHeight - innerHeight;
+      lesebalken.style.width = (h > 0 ? Math.min(100, scrollY / h * 100) : 0) + "%";
+    }
+  }
+  if (geschichten.length || lesebalken) {
+    const anstossen = () => { if (!scrollGeplant) { scrollGeplant = true; requestAnimationFrame(scrollBild); } };
+    addEventListener("scroll", anstossen, { passive: true });
+    addEventListener("resize", anstossen);
+    scrollBild();
+  }
+
   // ------------------------------------------------ Geräteübersicht: Suche, Filter, Sortierung
   const liste = $("[data-geraete-liste]");
   if (liste) {
@@ -566,8 +730,9 @@
   // ------------------------------------------------ Einblenden beim Scrollen (gestaffelt)
   const EINBLENDEN = ".seitenkopf, .werkzeug-karte, .kennzahlen, .rechner, .produkt, .hinweis-karte, .tipp-karte, .fakt-karte, "
     + ".kategorie-karte, .faq-eintrag, .geraet-karte, .rangliste, .quiz, .text-karte, .monate, .diagramm-karte, "
-    + ".abschnitt > h2, .abschnitt > .overline, .abschnitt-kopf, .abschnitt > .unterzeile";
-  const ziele = $$(EINBLENDEN).filter((el) => !el.closest(".held"));
+    + ".abschnitt > h2, .abschnitt > .overline, .abschnitt-kopf, .abschnitt > .unterzeile, "
+    + ".statement-zeile, .statement-unter, .artikel-karte, .artikel-abschnitt, .cta-karte, .kwh-raster > div, .label-skala";
+  const ziele = $$(EINBLENDEN).filter((el) => !el.closest(".held, .story"));
   if ("IntersectionObserver" in window && !BEWEGUNG_AUS) {
     let gemeldet = false;
     const beobachter = new IntersectionObserver((eintraege) => {

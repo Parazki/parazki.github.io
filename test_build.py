@@ -89,7 +89,7 @@ class Bauen(unittest.TestCase):
 
     def test_sitemap_vollstaendig(self):
         xml = (self.ziel / "sitemap.xml").read_text(encoding="utf-8")
-        self.assertEqual(xml.count("<url>"), len(self.geraete) + 5)
+        self.assertEqual(xml.count("<url>"), len(self.geraete) + 10 + len(build.ARTIKEL))
         self.assertNotIn("impressum", xml)
 
     def test_faq_jsonld_gueltig(self):
@@ -97,7 +97,7 @@ class Bauen(unittest.TestCase):
         m = re.search(r'<script type="application/ld\+json">(.*?)</script>', text, re.S)
         daten = json.loads(m.group(1))
         self.assertEqual(daten["@type"], "FAQPage")
-        self.assertEqual(len(daten["mainEntity"]), 3)
+        self.assertEqual(len(daten["mainEntity"]), 5)
 
     def test_relative_links_funktionieren(self):
         text = (self.ziel / "geraet" / "kuehlschrank" / "index.html").read_text(encoding="utf-8")
@@ -106,7 +106,8 @@ class Bauen(unittest.TestCase):
             self.assertTrue((self.ziel / "geraet" / "kuehlschrank" / ziel / "index.html").resolve().exists(), ziel)
 
     def test_navigation_markiert_aktive_seite(self):
-        for pfad, ziel in (("index.html", "./"), ("quiz/index.html", "../quiz/"), ("geraet/kuehlschrank/index.html", "../../geraete/")):
+        for pfad, ziel in (("index.html", "./"), ("quiz/index.html", "../werkzeuge/"), ("geraet/kuehlschrank/index.html", "../../geraete/"),
+                            ("wissen/standby/index.html", "../../wissen/"), ("werkzeuge/zaehlerstand/index.html", "../../werkzeuge/")):
             text = (self.ziel / pfad).read_text(encoding="utf-8")
             self.assertIn(f'href="{ziel}" aria-current="page"', text, pfad)
             self.assertEqual(text.count('aria-current="page"'), 1, pfad)
@@ -169,6 +170,23 @@ class Bauen(unittest.TestCase):
         domain = build.basis_url(mit).split("://", 1)[-1].split("/", 1)[0]
         self.assertIn(f'data-domains="{domain}"', index)
         self.assertIn("Besucherstatistik (Umami)", (ziel_mit / "datenschutz" / "index.html").read_text(encoding="utf-8"))
+
+    def test_wissen_artikel(self):
+        self.assertGreaterEqual(len(build.ARTIKEL), 6)
+        for a in build.ARTIKEL:
+            text = (self.ziel / "wissen" / a["slug"] / "index.html").read_text(encoding="utf-8")
+            self.assertIn('"@type": "Article"', text)
+            self.assertNotIn("{root}", text)
+            self.assertNotIn("{preis}", text)
+            for ziel in re.findall(r'href="(\.\./\.\./[^"#?]*/)"', text):
+                self.assertTrue((self.ziel / "wissen" / a["slug"] / ziel / "index.html").resolve().exists(), (a["slug"], ziel))
+
+    def test_werkzeuge_seiten(self):
+        for pfad, typ in (("werkzeuge/standby/index.html", "standby"), ("werkzeuge/austausch/index.html", "austausch"),
+                          ("werkzeuge/zaehlerstand/index.html", "zaehler"), ("balkonkraftwerk/index.html", "bkw")):
+            self.assertIn(f'data-rechner="{typ}"', (self.ziel / pfad).read_text(encoding="utf-8"), pfad)
+        self.assertIn("data-story", (self.ziel / "index.html").read_text(encoding="utf-8"))
+        self.assertIn("data-story", (self.ziel / "balkonkraftwerk" / "index.html").read_text(encoding="utf-8"))
 
     def test_kein_html_injection_aus_daten(self):
         for g in self.geraete:

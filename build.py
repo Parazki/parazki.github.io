@@ -17,6 +17,8 @@ import sys
 from pathlib import Path
 from urllib.parse import quote_plus
 
+from wissen import ARTIKEL
+
 ROOT = Path(__file__).resolve().parent
 PLATZHALTER = "BITTE_AUSFUELLEN"
 STUNDEN_JAHR = 8760
@@ -123,6 +125,9 @@ ICONS = {
     "info": '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>',
     "bolt": '<path fill="currentColor" stroke="none" d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
     "refresh": '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>',
+    "book": '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v14H6.5A1.5 1.5 0 0 0 5 18.5zM5 18.5A1.5 1.5 0 0 0 6.5 20H19v-3"/><path d="M9 7h6"/>',
+    "wrench": '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.1-.4-.4-2.1z"/>',
+    "clock": '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 }
 SPRITE = ('<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>'
           + "".join(f'<symbol id="i-{k}" viewBox="0 0 24 24">{v}</symbol>' for k, v in ICONS.items())
@@ -134,8 +139,25 @@ def icon(name, cls="ic"):
 
 
 NAV = [("start", "", "Start", "home"), ("geraete", "geraete/", "Geräte", "grid"),
-       ("haushalt", "haushalt/", "Haushalt", "pie"), ("quiz", "quiz/", "Quiz", "quiz"),
-       ("solar", "balkonkraftwerk/", "Solar", "sun")]
+       ("haushalt", "haushalt/", "Haushalt", "pie"), ("wissen", "wissen/", "Wissen", "book"),
+       ("werkzeuge", "werkzeuge/", "Tools", "wrench")]
+
+# Typische Standby-Werte (Watt) und Startanzahl für den Standby-Rechner
+STANDBY_GERAETE = [
+    ("tv", "📺", "Fernseher", 0.5, 1), ("receiver", "📡", "Receiver / Set-Top-Box", 3, 1),
+    ("soundbar", "🔊", "Soundbar", 2, 0), ("konsole", "🎮", "Spielkonsole (Ruhemodus)", 3, 0),
+    ("speaker", "🗣️", "Smart Speaker", 2, 1), ("repeater", "📶", "WLAN-Repeater", 3, 0),
+    ("drucker", "🖨️", "Drucker", 3, 1), ("mikrowelle", "🍲", "Mikrowelle mit Uhr", 1.5, 1),
+    ("kaffee", "☕", "Kaffeemaschine", 1, 1), ("pc", "🖥️", "PC (ausgeschaltet)", 1, 1),
+    ("monitor", "🖱️", "Monitor", 0.3, 1), ("ladegeraet", "🔌", "Ladegerät ohne Gerät", 0.3, 3),
+    ("zahnbuerste", "🪥", "Zahnbürsten-Ladestation", 1, 1), ("boiler", "🚰", "Untertischboiler", 12, 0),
+]
+# Vorlagen für den Austausch-Rechner: alt kWh/Jahr, neu kWh/Jahr, Anschaffung €
+AUSTAUSCH_VORLAGEN = [
+    ("kuehlschrank", "🧊", "Kühlschrank", 300, 150, 500), ("gefrierschrank", "❄️", "Gefrierschrank", 400, 200, 500),
+    ("trockner", "🌀", "Trockner", 610, 234, 650), ("licht", "💡", "10 Lampen → LED", 874, 117, 40),
+    ("fernseher", "📺", "Fernseher", 438, 131, 600), ("waschmaschine", "🫧", "Waschmaschine", 260, 160, 550),
+]
 
 
 # ---------------------------------------------------------------- HTML-Bausteine
@@ -476,10 +498,16 @@ def startseite(ctx, geraete):
 </aside>
 
 <section class="werkzeuge">
-  <a class="werkzeug-karte wk-primaer ripple" href="{s.link('haushalt/')}"><span class="wk-emoji" aria-hidden="true">🏠</span><strong>Mein Haushalt</strong><small>Alle Geräte sammeln und die Gesamtkosten sehen</small>{icon('chevron', 'ic wk-pfeil')}</a>
-  <a class="werkzeug-karte wk-tertiaer ripple" href="{s.link('quiz/')}"><span class="wk-emoji" aria-hidden="true">🧠</span><strong>Stromfresser-Quiz</strong><small>Was kostet mehr? Teste dein Gefühl</small>{icon('chevron', 'ic wk-pfeil')}</a>
-  <a class="werkzeug-karte wk-sekundaer ripple" href="{s.link('balkonkraftwerk/')}"><span class="wk-emoji" aria-hidden="true">☀️</span><strong>Balkonkraftwerk</strong><small>Ertrag, Ersparnis und Amortisation</small>{icon('chevron', 'ic wk-pfeil')}</a>
-  <a class="werkzeug-karte ripple" href="#rechner"><span class="wk-emoji" aria-hidden="true">🧮</span><strong>Freier Rechner</strong><small>Eigene Watt und Stunden eingeben</small>{icon('chevron', 'ic wk-pfeil')}</a>
+  {werkzeug_karten(s, ["haushalt", "zaehler", "quiz", "solar", "standby", "austausch"])}
+</section>
+
+{haus_story(s, ctx)}
+
+<section class="statement" aria-label="Standby in Zahlen">
+  <p class="statement-zeile">1 Watt.</p>
+  <p class="statement-zeile">Rund um die Uhr.</p>
+  <p class="statement-zeile statement-verlauf">{euro(8.76 * ctx['preis'])} im Jahr.</p>
+  <p class="statement-unter">So viel kostet jedes Watt Standby. <a href="{s.link('werkzeuge/standby/')}">Was kostet dein Standby?</a></p>
 </section>
 
 <section class="abschnitt">
@@ -502,6 +530,11 @@ def startseite(ctx, geraete):
 </section>
 
 <section class="abschnitt">
+  <div class="abschnitt-kopf"><div><span class="overline">Wissen</span><h2>Strom verstehen</h2></div><a class="knopf knopf-text" href="{s.link('wissen/')}">Alle Ratgeber{icon('chevron')}</a></div>
+  <div class="karussell">{''.join(artikel_karte(s, a) for a in ARTIKEL)}</div>
+</section>
+
+<section class="abschnitt">
   <span class="overline">Entdecken</span>
   <h2>Nach Bereich stöbern</h2>
   <div class="kategorie-raster">{kategorien}</div>
@@ -510,9 +543,9 @@ def startseite(ctx, geraete):
 {messgeraet_karte(ctx)}
 {faq_html(fragen)}
 """
-    titel = f"Stromkosten-Rechner {ctx['jahr']}: Verbrauch & Kosten jedes Geräts berechnen"
-    beschr = (f"Kostenloser Stromkosten-Rechner für {len(geraete)} Geräte: Verbrauch und Kosten pro Jahr und Monat, "
-              "Haushalts-Check, Quiz und Spartipps. Auch als App nutzbar.")
+    titel = f"Stromrechner {ctx['jahr']}: Stromkosten & Verbrauch jedes Geräts berechnen"
+    beschr = (f"Kostenloser Stromrechner für {len(geraete)} Geräte: Stromkosten pro Jahr und Monat, Haushalts-Check, "
+              "Zählerstand- und Standby-Rechner, Ratgeber und Spartipps. Auch als App nutzbar.")
     jsonld = faq_jsonld(fragen) + '<script type="application/ld+json">' + json.dumps({
         "@context": "https://schema.org", "@type": "WebApplication", "name": ctx["name"], "url": s.kanonisch,
         "applicationCategory": "UtilitiesApplication", "operatingSystem": "Android, iOS, Windows, macOS",
@@ -569,6 +602,11 @@ def geraeteseite(ctx, g, geraete):
          f"Bei typischer Nutzung etwa {zahl(kwh)} kWh im Jahr. Annahme: {g['hinweis']}"),
         (f"Was kostet {voll} im Monat?",
          f"Bei einem Strompreis von {preis_txt} €/kWh rund {euro(kosten / 12)} pro Monat bzw. {euro(kosten)} pro Jahr.{standby_satz}"),
+        (f"Wie viel Strom verbraucht {voll} pro Stunde?",
+         f"Im Betrieb etwa {zahl(g['leistung_w'], 0 if float(g['leistung_w']).is_integer() else 1)} Watt, also {zahl(g['leistung_w'] / 1000, 3)} kWh pro Stunde – "
+         f"das kostet bei {preis_txt} €/kWh rund {zahl(g['leistung_w'] / 1000 * preis * 100, 1)} Cent pro Betriebsstunde."),
+        (f"Was kostet {voll} pro Tag?",
+         f"Im Jahresdurchschnitt rund {zahl(kosten / 365 * 100, 1)} Cent pro Tag bei typischer Nutzung ({zahl(kwh / 365, 2)} kWh)."),
         (f"{gross(name)}: Wie kann ich Strom sparen?", g["tipp"]),
     ]
     p = g["produkt"]
@@ -719,7 +757,7 @@ def quiz_seite(ctx, geraete):
 """
     titel = "Stromfresser-Quiz: Welches Gerät kostet mehr Strom?"
     beschr = "Teste dein Gefühl für Stromkosten: 10 Runden, zwei Haushaltsgeräte – welches kostet im Jahr mehr? Mit echten Zahlen zur Auflösung."
-    return s, layout(s, titel, beschr, inhalt, "quiz")
+    return s, layout(s, titel, beschr, inhalt, "werkzeuge")
 
 
 def balkonkraftwerk_seite(ctx):
@@ -785,6 +823,7 @@ def balkonkraftwerk_seite(ctx):
     <button class="knopf knopf-tonal ripple" type="button" data-teilen>{icon('share')}Ergebnis teilen</button>
   </div>
 </form>
+{solar_story(s, ertrag, ersparnis)}
 <section class="abschnitt">
   <h2>Ertrag über das Jahr</h2>
   <p class="unterzeile">Typische Verteilung in Deutschland, in kWh pro Monat</p>
@@ -803,7 +842,7 @@ def balkonkraftwerk_seite(ctx):
 """
     titel = f"Balkonkraftwerk-Rechner {ctx['jahr']}: Ertrag, Ersparnis & Amortisation"
     beschr = "Lohnt sich ein Balkonkraftwerk? Berechne kostenlos Ertrag, jährliche Ersparnis und Amortisationszeit – mit Ausrichtung, Region und Eigenverbrauch."
-    return s, layout(s, titel, beschr, inhalt, "solar", faq_jsonld(fragen))
+    return s, layout(s, titel, beschr, inhalt, "werkzeuge", faq_jsonld(fragen))
 
 
 def impressum_seite(ctx):
@@ -868,6 +907,338 @@ def fehlerseite(ctx):
     return layout(s, "Seite nicht gefunden", "Seite nicht gefunden", inhalt, index=False)
 
 
+# ---------------------------------------------------------------- Werkzeuge, Wissen, Scroll-Geschichten
+
+WERKZEUGE = {
+    "haushalt": ("haushalt/", "🏠", "Mein Haushalt", "Alle Geräte sammeln, Gesamtkosten und Sparpotenzial sehen", "wk-primaer"),
+    "zaehler": ("werkzeuge/zaehlerstand/", "🔢", "Zählerstand-Rechner", "Droht eine Nachzahlung? Verbrauch hochrechnen", "wk-sekundaer"),
+    "quiz": ("quiz/", "🧠", "Stromfresser-Quiz", "Was kostet mehr? Teste dein Gefühl", "wk-tertiaer"),
+    "solar": ("balkonkraftwerk/", "☀️", "Balkonkraftwerk", "Ertrag, Ersparnis und Amortisation", "wk-tertiaer"),
+    "standby": ("werkzeuge/standby/", "🔌", "Standby-Rechner", "Was kosten Geräte, die nie ganz aus sind?", "wk-sekundaer"),
+    "austausch": ("werkzeuge/austausch/", "🔁", "Austausch-Rechner", "Lohnt sich ein neues, sparsames Gerät?", "wk-primaer"),
+    "frei": ("#rechner", "🧮", "Freier Rechner", "Eigene Watt und Stunden eingeben", ""),
+}
+
+
+def werkzeug_karten(s, schluessel):
+    karten = []
+    for k in schluessel:
+        ziel, emoji, titel, text, klasse = WERKZEUGE[k]
+        href = ziel if ziel.startswith("#") else s.link(ziel)
+        karten.append(f'<a class="werkzeug-karte {klasse} ripple" href="{href}"><span class="wk-emoji" aria-hidden="true">{emoji}</span>'
+                      f'<strong>{e(titel)}</strong><small>{e(text)}</small>{icon("chevron", "ic wk-pfeil")}</a>')
+    return "".join(karten)
+
+
+def artikel_karte(s, a):
+    return (f'<a class="artikel-karte ripple" href="{s.link("wissen/" + a["slug"] + "/")}"><span class="ak-emoji" aria-hidden="true">{a["emoji"]}</span>'
+            f'<strong>{e(a["titel"])}</strong><small>{e(a["kurz"])}</small><span class="ak-mehr">Lesen{icon("chevron")}</span></a>')
+
+
+def story(schritte, bild, name):
+    """Scroll-Geschichte im Apple-Stil: Bühne bleibt stehen, Texte und Bild wechseln beim Scrollen."""
+    texte = "".join(
+        f'<div class="story-schritt" data-schritt="{i}"><span class="overline">{e(over)}</span><h2>{titel}</h2><p>{text}</p></div>'
+        for i, (over, titel, text) in enumerate(schritte))
+    return f'''<section class="story" data-story style="--schritte:{len(schritte)}" aria-label="{e(name)}">
+  <div class="story-buehne">
+    <div class="story-bild" aria-hidden="true">{bild}</div>
+    <div class="story-texte">{texte}</div>
+    <div class="story-punkte" aria-hidden="true">{"".join("<i></i>" for _ in schritte)}</div>
+  </div>
+</section>'''
+
+
+def haus_story(s, ctx):
+    gesamt = HAUSHALT_SCHNITT[2]
+    bild = f'''<svg class="haus-svg" viewBox="0 0 360 270">
+  <line class="boden" x1="0" y1="250" x2="360" y2="250"/>
+  <path class="leitung" d="M300 250 V205 H272"/>
+  <polygon class="dach" points="18,112 150,28 282,112"/>
+  <rect class="hauswand" x="30" y="104" width="240" height="146" rx="8"/>
+  <rect class="raum r1" x="42" y="116" width="104" height="58" rx="6"/><text class="raum-emoji" x="94" y="154">🧊</text>
+  <rect class="raum r2" x="154" y="116" width="104" height="58" rx="6"/><text class="raum-emoji" x="206" y="154">📺</text>
+  <rect class="raum r3" x="42" y="182" width="104" height="58" rx="6"/><text class="raum-emoji" x="94" y="220">🫧</text>
+  <rect class="raum r4" x="154" y="182" width="104" height="58" rx="6"/><text class="raum-emoji" x="206" y="220">💻</text>
+  <text class="raum-emoji klein r1-zusatz" x="244" y="232">📶</text>
+  <g class="zaehler-box"><rect x="284" y="150" width="62" height="56" rx="10"/><text class="zaehler-zahl" x="315" y="181" data-story-zahl="{gesamt}">{zahl(gesamt)}</text><text class="zaehler-einheit" x="315" y="197">kWh</text></g>
+</svg>'''
+    schritte = [
+        ("Dein Zuhause", "Strom fließt rund um die Uhr.", "Auch wenn gerade niemand etwas einschaltet – irgendetwas läuft immer."),
+        ("Immer an", "Manche Geräte schlafen nie.", "Kühlschrank, Router und Standby laufen 8.760 Stunden im Jahr. Kleine Leistung, großer Effekt."),
+        ("Volle Kraft", "Andere laufen nur kurz – aber heftig.", "Waschmaschine, Herd und Fernseher brauchen viel Leistung, wenn sie laufen."),
+        ("Unterm Strich", f"Rund {zahl(gesamt)} kWh im Jahr.",
+         f'Das sind etwa {euro(gesamt * ctx["preis"])} für einen 2-Personen-Haushalt. <a href="{s.link("haushalt/")}">Wie ist es bei dir?</a>'),
+    ]
+    return story(schritte, bild, "Wohin fließt dein Strom?")
+
+
+def solar_story(s, ertrag, ersparnis):
+    bild = f'''<svg class="solar-svg" viewBox="0 0 360 270">
+  <defs><linearGradient id="himmel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="himmel-oben"/><stop offset="1" class="himmel-unten"/></linearGradient></defs>
+  <rect class="himmel" x="0" y="0" width="360" height="250" rx="18" fill="url(#himmel)"/>
+  <g class="sonne"><circle cx="180" cy="62" r="20"/><g class="strahlen"><path d="M180 30v-10M180 104v10M148 62h-10M212 62h10M157 39l-7-7M203 85l7 7M157 85l-7 7M203 39l7-7"/></g></g>
+  <line class="boden" x1="0" y1="250" x2="360" y2="250"/>
+  <g class="modul"><polygon points="40,206 128,186 140,232 52,252"/>
+    <path class="zellen" d="M62 201l12 46M84 196l12 46M106 191l12 46M46 222l88-20"/></g>
+  <path class="kabel" d="M136 228 H178 M206 228 H246"/>
+  <g class="wechselrichter"><rect x="178" y="212" width="28" height="32" rx="6"/><text x="192" y="233">~</text></g>
+  <polygon class="dach" points="236,150 288,112 340,150"/>
+  <rect class="hauswand" x="246" y="146" width="84" height="104" rx="6"/>
+  <rect class="fenster" x="262" y="166" width="52" height="40" rx="5"/><text class="raum-emoji" x="288" y="194">🧊</text>
+  <text class="solar-zahl" x="288" y="236" data-story-zahl="{round(ertrag)}">{zahl(ertrag)} kWh</text>
+</svg>'''
+    schritte = [
+        ("Schritt 1", "Die Sonne liefert Energie.", "Kostenlos und jeden Tag – auch bei Wolken kommt noch ein Teil an."),
+        ("Schritt 2", "Solarmodule machen daraus Strom.", "Die Zellen wandeln Licht direkt in Gleichstrom um. Am meisten mittags und im Sommer."),
+        ("Schritt 3", "Der Wechselrichter macht ihn haushaltstauglich.", "Aus Gleichstrom wird Wechselstrom – und der fließt über die Steckdose in dein Hausnetz."),
+        ("Ergebnis", f"Rund {zahl(ertrag)} kWh im Jahr.",
+         f"Deine Geräte nutzen den Solarstrom sofort. Mit den Startwerten oben sparst du etwa {euro(ersparnis)} pro Jahr."),
+    ]
+    return story(schritte, bild, "So funktioniert ein Balkonkraftwerk")
+
+
+def werkzeuge_uebersicht(ctx):
+    s = Seite(ctx, "werkzeuge/")
+    inhalt = f"""
+<section class="seitenkopf">
+  <div class="seiten-icon" aria-hidden="true">🧰</div>
+  <h1>Alle Werkzeuge rund um Stromkosten</h1>
+  <p class="lead">Rechnen, vergleichen, spielen – kostenlos, ohne Anmeldung und direkt im Browser. Deine Eingaben bleiben auf deinem Gerät.</p>
+</section>
+<section class="werkzeuge werkzeuge-gross">
+  {werkzeug_karten(s, ["haushalt", "zaehler", "standby", "austausch", "solar", "quiz"])}
+  <a class="werkzeug-karte ripple" href="{s.link('')}#rechner"><span class="wk-emoji" aria-hidden="true">🧮</span><strong>Freier Rechner</strong><small>Eigene Watt und Stunden eingeben</small>{icon('chevron', 'ic wk-pfeil')}</a>
+  <a class="werkzeug-karte ripple" href="{s.link('geraete/')}"><span class="wk-emoji" aria-hidden="true">📋</span><strong>Geräte-Rechner</strong><small>52 Geräte mit typischen Werten</small>{icon('chevron', 'ic wk-pfeil')}</a>
+</section>
+{messgeraet_karte(ctx)}
+"""
+    return s, layout(s, "Stromkosten-Werkzeuge: Rechner für Haushalt, Zähler, Standby & Solar",
+                     "Kostenlose Strom-Rechner: Haushalts-Check, Zählerstand und Nachzahlung, Standby-Kosten, Geräte-Austausch, Balkonkraftwerk und Quiz.",
+                     inhalt, "werkzeuge")
+
+
+def standby_seite(ctx):
+    s = Seite(ctx, "werkzeuge/standby/")
+    preis = ctx["preis"]
+    watt = sum(w * n for _, _, _, w, n in STANDBY_GERAETE)
+    kwh = watt * 20 * 365 / 1000
+    zeilen = "".join(f"""<li class="standby-zeile"><span class="emoji-kreis" aria-hidden="true">{em}</span>
+  <span class="hh-name"><b>{e(name)}</b><small>ca. {zahl(w, 1 if w % 1 else 0)} W Standby</small></span>
+  <span class="stepper"><button type="button" data-schritt="-1" aria-label="{e(name)} weniger">{icon('minus')}</button>
+  <output>{n}</output><button type="button" data-schritt="1" aria-label="{e(name)} mehr">{icon('plus')}</button></span>
+  <input type="hidden" name="sb-{key}" value="{n}" data-watt="{w}"></li>""" for key, em, name, w, n in STANDBY_GERAETE)
+    fragen = [
+        ("Wie viel Standby ist normal?", "Neue Geräte dürfen im reinen Bereitschaftsmodus meist nur noch wenig verbrauchen, oft höchstens 0,5 Watt. Vernetzte und ältere Geräte liegen oft deutlich darüber."),
+        ("Wie messe ich den Standby-Verbrauch?", "Mit einem Strommessgerät für die Steckdose: Gerät einstecken, ausschalten und den angezeigten Wert in Watt ablesen."),
+        ("Lohnt sich eine schaltbare Steckdosenleiste?", f"Ja, wenn mehrere Geräte dranhängen. Schon 5 Watt weniger Dauerverbrauch sparen bei {zahl(preis, 2)} €/kWh rund {euro(5 * 8.76 * preis)} im Jahr."),
+    ]
+    inhalt = f"""
+<nav class="krumen" aria-label="Brotkrümel"><a href="{s.wurzel}">Start</a>{icon('chevron')}<a href="{s.link('werkzeuge/')}">Werkzeuge</a>{icon('chevron')}<span>Standby</span></nav>
+<section class="seitenkopf">
+  <div class="seiten-icon" aria-hidden="true">🔌</div>
+  <h1>Standby-Rechner: Was kosten Geräte, die nie ganz aus sind?</h1>
+  <p class="lead">Tippe an, welche Geräte bei dir im Bereitschaftsmodus warten. Die Werte sind typische Durchschnittswerte – nachmessen lohnt sich.</p>
+</section>
+<form class="rechner" data-rechner="standby" onsubmit="return false">
+  <div class="ergebnis-held">
+    <div class="eh-kopf"><span class="eh-emoji" aria-hidden="true">🔌</span><span class="eh-label">Standby-Kosten pro Jahr</span></div>
+    <div class="eh-wert" data-aus="euro_jahr">{euro(kwh * preis)}</div>
+    <div class="eh-chips">
+      <span class="eh-chip"><b data-aus="watt">{zahl(watt, 1)} W</b> zusammen</span>
+      <span class="eh-chip"><b data-aus="kwh_jahr">{zahl(kwh)} kWh</b> pro Jahr</span>
+      <span class="eh-chip"><b data-aus="euro_10">{euro(kwh * preis * 10)}</b> in 10 Jahren</span>
+    </div>
+  </div>
+  <div class="rechner-felder">
+    {schieber("stunden", "Standby-Stunden pro Tag", 20, 1, 24, 1, "h", "20 h")}
+    <ul class="hh-liste">{zeilen}</ul>
+  </div>
+</form>
+<div class="hinweis-karte">{icon('info')}<p>Gerechnet wird: Standby-Leistung × Stunden pro Tag × 365. Mit einer schaltbaren Steckdosenleiste lässt sich der Großteil davon vermeiden.</p></div>
+{produkt_karte(ctx, "Schaltbare Steckdosenleiste", "Ein Klick – und alle angeschlossenen Geräte ziehen keinen Standby-Strom mehr.", "Steckdosenleiste schaltbar", "🔌")}
+{messgeraet_karte(ctx)}
+<section class="abschnitt"><a class="knopf knopf-tonal ripple" href="{s.link('wissen/standby/')}">{icon('book')}Ratgeber: Alles über Standby</a></section>
+{faq_html(fragen)}
+"""
+    return s, layout(s, "Standby-Rechner: Was kostet Standby im Jahr?",
+                     "Berechne kostenlos, was deine Geräte im Standby pro Jahr kosten – Fernseher, Receiver, Konsole, Drucker und mehr.",
+                     inhalt, "werkzeuge", faq_jsonld(fragen))
+
+
+def austausch_seite(ctx):
+    s = Seite(ctx, "werkzeuge/austausch/")
+    preis = ctx["preis"]
+    _, _, _, alt, neu, kosten = AUSTAUSCH_VORLAGEN[0]
+    ersparnis = (alt - neu) * preis
+    amort = kosten / ersparnis if ersparnis > 0 else 0
+    vorlagen = "".join(
+        f'<label><input type="radio" name="vorlage" value="{k}" data-alt="{a}" data-neu="{n}" data-kosten="{c}"{" checked" if i == 0 else ""}>'
+        f'<span>{icon("check", "ic chip-haken")}<i aria-hidden="true">{em}</i>{e(name)}</span></label>'
+        for i, (k, em, name, a, n, c) in enumerate(AUSTAUSCH_VORLAGEN))
+    fragen = [
+        ("Wann lohnt sich ein neuer Kühlschrank?", "Vor allem bei Geräten, die älter als etwa 15 Jahre sind. Alte Kühlgeräte verbrauchen oft doppelt so viel wie moderne. Wie schnell sich der Tausch rechnet, zeigt der Rechner."),
+        ("Woher weiß ich, wie viel mein altes Gerät verbraucht?", "Am genauesten mit einem Strommessgerät: eine Woche messen und mal 52 nehmen. Für Kühlgeräte steht der Verbrauch auch auf dem Energielabel bzw. im Datenblatt."),
+        ("Was ist die Amortisationszeit?", "Die Zeit, bis die Stromersparnis die Anschaffungskosten wieder eingespielt hat. Danach spart das neue Gerät jedes Jahr echtes Geld."),
+    ]
+    inhalt = f"""
+<nav class="krumen" aria-label="Brotkrümel"><a href="{s.wurzel}">Start</a>{icon('chevron')}<a href="{s.link('werkzeuge/')}">Werkzeuge</a>{icon('chevron')}<span>Austausch</span></nav>
+<section class="seitenkopf">
+  <div class="seiten-icon" aria-hidden="true">🔁</div>
+  <h1>Austausch-Rechner: Lohnt sich ein neues Gerät?</h1>
+  <p class="lead">Vergleiche dein altes Gerät mit einem sparsamen neuen – und sieh, nach wie vielen Jahren sich der Kauf bezahlt macht.</p>
+</section>
+<form class="rechner" data-rechner="austausch" onsubmit="return false">
+  <div class="ergebnis-held">
+    <div class="eh-kopf"><span class="eh-emoji" aria-hidden="true">🔁</span><span class="eh-label">Ersparnis pro Jahr</span></div>
+    <div class="eh-wert" data-aus="ersparnis">{euro(ersparnis)}</div>
+    <div class="eh-chips">
+      <span class="eh-chip">bezahlt nach <b data-aus="amort">{zahl(amort, 1)} Jahren</b></span>
+      <span class="eh-chip">nach 10 Jahren <b data-aus="bilanz">{euro(ersparnis * 10 - kosten)}</b></span>
+    </div>
+  </div>
+  <div class="rechner-felder">
+    <div class="regler"><div class="regler-kopf"><span>Gerät</span></div><div class="vorlagen-chips">{vorlagen}</div></div>
+    {zahlenfeld("alt", "Verbrauch altes Gerät", alt, "kWh / Jahr")}
+    {zahlenfeld("neu", "Verbrauch neues Gerät", neu, "kWh / Jahr")}
+    {schieber("kosten", "Anschaffungskosten", kosten, 0, 2000, 10, "€")}
+    {zahlenfeld("preis", "Strompreis (gilt für die ganze Seite)", preis, "€/kWh")}
+  </div>
+</form>
+<section class="abschnitt">
+  <span class="overline">Bilanz</span>
+  <h2>Deine Ersparnis über 10 Jahre</h2>
+  <p class="unterzeile">Ersparnis minus Anschaffung, aufsummiert – ab dem grünen Balken bist du im Plus.</p>
+  <div class="bilanz-diagramm karte-flach" data-bilanz></div>
+</section>
+<div class="hinweis-karte">{icon('info')}<p>Die Vorlagen sind typische Werte. Den echten Verbrauch deines alten Geräts misst du am besten eine Woche lang mit einem Strommessgerät.</p></div>
+{messgeraet_karte(ctx)}
+<section class="abschnitt"><a class="knopf knopf-tonal ripple" href="{s.link('wissen/energielabel/')}">{icon('book')}Ratgeber: Das Energielabel verstehen</a></section>
+{faq_html(fragen)}
+"""
+    return s, layout(s, "Austausch-Rechner: Lohnt sich ein neuer Kühlschrank, Trockner oder LED?",
+                     "Rechne aus, ob sich ein neues, sparsames Gerät lohnt: Ersparnis pro Jahr, Amortisation und 10-Jahres-Bilanz.",
+                     inhalt, "werkzeuge", faq_jsonld(fragen))
+
+
+def zaehler_seite(ctx):
+    s = Seite(ctx, "werkzeuge/zaehlerstand/")
+    preis = ctx["preis"]
+    heute = ctx["heute"]
+    vorher = heute - datetime.timedelta(days=90)
+    alt, neu, grund, abschlag = 12000, 12600, 12, 80
+    proTag = (neu - alt) / 90
+    jahr = proTag * 365
+    kosten = jahr * preis + grund * 12
+    diff = kosten - abschlag * 12
+    fragen = [
+        ("Wie berechne ich meine Nachzahlung?", "Hochgerechneter Jahresverbrauch × Arbeitspreis + 12 × Grundpreis ergibt die Jahreskosten. Davon ziehst du die Summe deiner Abschläge ab. Ist das Ergebnis positiv, droht eine Nachzahlung."),
+        ("Wie genau ist die Hochrechnung?", "Je länger der Zeitraum zwischen den Ablesungen, desto genauer. Im Winter ist der Verbrauch meist etwas höher als im Sommer – eine Hochrechnung aus Wintermonaten fällt deshalb eher zu hoch aus."),
+        ("Wo finde ich Grundpreis und Arbeitspreis?", "Auf deiner letzten Stromrechnung oder in deinem Vertrag. Der Arbeitspreis steht in Cent pro kWh, der Grundpreis meist in Euro pro Monat oder Jahr."),
+    ]
+    inhalt = f"""
+<nav class="krumen" aria-label="Brotkrümel"><a href="{s.wurzel}">Start</a>{icon('chevron')}<a href="{s.link('werkzeuge/')}">Werkzeuge</a>{icon('chevron')}<span>Zählerstand</span></nav>
+<section class="seitenkopf">
+  <div class="seiten-icon" aria-hidden="true">🔢</div>
+  <h1>Zählerstand-Rechner: Droht eine Nachzahlung?</h1>
+  <p class="lead">Trag zwei Zählerstände ein – der Rechner zeigt deinen Verbrauch, rechnet ihn aufs Jahr hoch und vergleicht ihn mit deinem Abschlag.</p>
+</section>
+<form class="rechner" data-rechner="zaehler" onsubmit="return false">
+  <div class="ergebnis-held" data-zaehler-ergebnis>
+    <div class="eh-kopf"><span class="eh-emoji" aria-hidden="true">🔢</span><span class="eh-label" data-aus="label">{"Voraussichtliche Nachzahlung" if diff > 0 else "Voraussichtliches Guthaben"}</span></div>
+    <div class="eh-wert" data-aus="differenz">{euro(abs(diff))}</div>
+    <div class="eh-chips">
+      <span class="eh-chip"><b data-aus="verbrauch">{zahl(neu - alt)} kWh</b> in <b data-aus="tage">90</b> Tagen</span>
+      <span class="eh-chip"><b data-aus="pro_tag">{zahl(proTag, 1)} kWh</b> pro Tag</span>
+      <span class="eh-chip">Hochrechnung <b data-aus="jahr">{zahl(jahr)} kWh</b></span>
+      <span class="eh-chip">Kosten <b data-aus="kosten">{euro(kosten)}</b> / Jahr</span>
+    </div>
+    <p class="eh-meldung" data-aus="meldung" hidden></p>
+  </div>
+  <div class="rechner-felder">
+    <div class="feld-paar">
+      {zahlenfeld("alt", "Erster Zählerstand", alt, "kWh")}
+      <label class="feld"><span class="feld-label">am</span><span class="feld-rahmen"><input type="date" name="datum_alt" value="{vorher.isoformat()}"></span></label>
+    </div>
+    <div class="feld-paar">
+      {zahlenfeld("neu", "Aktueller Zählerstand", neu, "kWh")}
+      <label class="feld"><span class="feld-label">am</span><span class="feld-rahmen"><input type="date" name="datum_neu" value="{heute.isoformat()}"></span></label>
+    </div>
+    {zahlenfeld("preis", "Arbeitspreis (gilt für die ganze Seite)", preis, "€/kWh")}
+    {zahlenfeld("grund", "Grundpreis", grund, "€ / Monat")}
+    {zahlenfeld("abschlag", "Monatlicher Abschlag", abschlag, "€ / Monat")}
+  </div>
+</form>
+<div class="hinweis-karte">{icon('info')}<p>Die Hochrechnung ist eine Schätzung. Saisonale Schwankungen, Preisänderungen und Bonusse deines Anbieters sind nicht berücksichtigt.</p></div>
+<section class="abschnitt"><a class="knopf knopf-tonal ripple" href="{s.link('wissen/stromzaehler-ablesen/')}">{icon('book')}Ratgeber: Stromzähler richtig ablesen</a></section>
+{messgeraet_karte(ctx)}
+{faq_html(fragen)}
+"""
+    return s, layout(s, "Zählerstand-Rechner: Stromverbrauch hochrechnen & Nachzahlung prüfen",
+                     "Zwei Zählerstände eintragen: Verbrauch pro Tag, Hochrechnung aufs Jahr und ob eine Nachzahlung oder ein Guthaben droht.",
+                     inhalt, "werkzeuge", faq_jsonld(fragen))
+
+
+def platzhalter(s, ctx):
+    return {"root": s.wurzel, "preis": zahl(ctx["preis"], 2), "euro_1w": euro(8.76 * ctx["preis"]),
+            "euro_kwh": f"{zahl(ctx['preis'] * 100, 0)} Cent"}
+
+
+def wissen_uebersicht(ctx):
+    s = Seite(ctx, "wissen/")
+    inhalt = f"""
+<section class="seitenkopf">
+  <div class="seiten-icon" aria-hidden="true">📚</div>
+  <h1>Strom-Wissen: einfach erklärt</h1>
+  <p class="lead">Kurze, verständliche Ratgeber rund um Stromverbrauch, Kosten und Sparen – mit Beispielen und Rechnern zum Ausprobieren.</p>
+</section>
+<section class="artikel-raster">{''.join(artikel_karte(s, a) for a in ARTIKEL)}</section>
+{messgeraet_karte(ctx)}
+"""
+    return s, layout(s, "Strom-Wissen: Ratgeber zu Verbrauch, Kosten und Strom sparen",
+                     "Einfach erklärt: Watt und kWh, Standby, Stromzähler ablesen, Energielabel, 30 Spartipps und normaler Stromverbrauch.",
+                     inhalt, "wissen")
+
+
+def wissen_artikel(ctx, a):
+    s = Seite(ctx, f"wissen/{a['slug']}/")
+    werte = platzhalter(s, ctx)
+    abschnitte = a["abschnitte"]
+    toc = "".join(f'<a class="chip ripple" href="#abschnitt-{i}">{e(h)}</a>' for i, (h, _) in enumerate(abschnitte))
+    text = "".join(f'<section class="artikel-abschnitt" id="abschnitt-{i}"><h2>{e(h)}</h2>{html.format(**werte)}</section>'
+                   for i, (h, html) in enumerate(abschnitte))
+    fragen = [(f, antwort.format(**werte)) for f, antwort in a["fragen"]]
+    woerter = sum(len(h.split()) + len(x.split()) for h, x in abschnitte)
+    minuten = max(1, round(woerter / 200))
+    cta_text, cta_ziel = a["werkzeug"]
+    weitere = [x for x in ARTIKEL if x["slug"] != a["slug"]]
+    inhalt = f"""
+<div class="lesefortschritt" aria-hidden="true"><span data-lesefortschritt></span></div>
+<nav class="krumen" aria-label="Brotkrümel"><a href="{s.wurzel}">Start</a>{icon('chevron')}<a href="{s.link('wissen/')}">Wissen</a>{icon('chevron')}<span>{e(a['titel'])}</span></nav>
+<section class="seitenkopf">
+  <div class="seiten-icon" aria-hidden="true">{a['emoji']}</div>
+  <h1>{e(a['titel'])}</h1>
+  <p class="lead">{e(a['kurz'])}</p>
+  <p class="lesezeit">{icon('clock')}{minuten} Min. Lesezeit · Stand {e(ctx['stand'])}</p>
+</section>
+<nav class="chip-reihe chip-scroll inhaltsverzeichnis" aria-label="Inhalt">{toc}</nav>
+<article class="artikel-text">{text}</article>
+<a class="cta-karte ripple" href="{s.link(cta_ziel)}"><span class="cta-icon">{icon('wrench')}</span><span><small>Jetzt ausprobieren</small><strong>{e(cta_text)}</strong></span>{icon('chevron')}</a>
+{messgeraet_karte(ctx)}
+{faq_html(fragen)}
+<section class="abschnitt">
+  <span class="overline">Weiterlesen</span>
+  <h2>Mehr Strom-Wissen</h2>
+  <div class="karussell">{''.join(artikel_karte(s, x) for x in weitere)}</div>
+</section>
+"""
+    jsonld = faq_jsonld(fragen) + '<script type="application/ld+json">' + json.dumps({
+        "@context": "https://schema.org", "@type": "Article", "headline": a["titel"], "description": a["beschreibung"],
+        "inLanguage": "de", "dateModified": ctx["heute"].isoformat(), "mainEntityOfPage": s.kanonisch,
+        "author": {"@type": "Organization", "name": ctx["name"]}}, ensure_ascii=False) + "</script>"
+    return s, layout(s, f"{a['titel']} ({ctx['jahr']})", a["beschreibung"], inhalt, "wissen", jsonld)
+
+
 # ---------------------------------------------------------------- App-Dateien (PWA)
 
 def daten_js(ctx, geraete):
@@ -877,6 +1248,7 @@ def daten_js(ctx, geraete):
         "schnitt": HAUSHALT_SCHNITT,
         "vorlage": HAUSHALT_VORLAGE,
         "solar": SOLAR_MONATE,
+        "austausch": [{"k": k, "alt": a, "neu": n, "kosten": c} for k, _, _, a, n, c in AUSTAUSCH_VORLAGEN],
         "geraete": [{"s": g["slug"], "e": g["emoji"], "n": gross(g["name"]), "nm": g["name"], "a": g["artikel"], "k": g["kategorie"],
                      "w": g["leistung_w"], "h": g["stunden"], "nw": g["nutzungen_woche"],
                      "wj": g.get("wochen_jahr", 52), "sb": g.get("standby_w", 0) or 0, "t": g["tipp"]}
@@ -907,6 +1279,7 @@ def manifest(ctx):
         "icons": icons,
         "shortcuts": [
             {"name": "Mein Haushalt", "short_name": "Haushalt", "url": "haushalt/", "icons": kurz},
+            {"name": "Zählerstand-Rechner", "short_name": "Zähler", "url": "werkzeuge/zaehlerstand/", "icons": kurz},
             {"name": "Stromfresser-Quiz", "short_name": "Quiz", "url": "quiz/", "icons": kurz},
             {"name": "Balkonkraftwerk-Rechner", "short_name": "Solar", "url": "balkonkraftwerk/", "icons": kurz},
         ],
@@ -914,7 +1287,7 @@ def manifest(ctx):
 
 
 def service_worker(version):
-    vorab = ["./", "geraete/", "haushalt/", "quiz/", "balkonkraftwerk/", "manifest.webmanifest",
+    vorab = ["./", "geraete/", "haushalt/", "wissen/", "werkzeuge/", "quiz/", "balkonkraftwerk/", "manifest.webmanifest",
              f"assets/style.css?v={version}", f"assets/app.js?v={version}", f"assets/daten.js?v={version}",
              "assets/icon.svg", "assets/icon-192.png"]
     return f"""// Service Worker: macht die Seite installierbar und offline nutzbar. Von build.py erzeugt.
@@ -977,6 +1350,12 @@ def lade_geraete():
 
 def baue(ziel, strict=False, heute=None, cfg=None):
     cfg = cfg if cfg is not None else json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
+    imp = dict(cfg.get("impressum", {}))
+    for feld in ("name", "strasse", "plz_ort", "email"):
+        aus_umgebung = os.environ.get("IMPRESSUM_" + feld.upper(), "").strip()
+        if aus_umgebung:
+            imp[feld] = aus_umgebung
+    cfg = dict(cfg, impressum=imp)
     fehlend = fehlende_pflichtangaben(cfg)
     if strict and fehlend:
         raise SystemExit(
@@ -986,7 +1365,7 @@ def baue(ziel, strict=False, heute=None, cfg=None):
     geraete = lade_geraete()
     # Version aus allen Eingaben: ändert sich bei jeder inhaltlichen Änderung -> Browser und Service Worker laden neu
     h = hashlib.sha256()
-    for datei in sorted([ROOT / "config.json", ROOT / "build.py", ROOT / "data" / "geraete.json", *(ROOT / "assets").iterdir()]):
+    for datei in sorted([ROOT / "config.json", ROOT / "build.py", ROOT / "wissen.py", ROOT / "data" / "geraete.json", *(ROOT / "assets").iterdir()]):
         if datei.is_file():
             h.update(datei.read_bytes())
     h.update(heute.isoformat().encode())
@@ -1006,6 +1385,7 @@ def baue(ziel, strict=False, heute=None, cfg=None):
         "jahr": heute.year,
         "stand": f"{MONATE[heute.month - 1]} {heute.year}",
         "version": h.hexdigest()[:10],
+        "heute": heute,
     }
 
     ziel = Path(ziel)
@@ -1015,7 +1395,10 @@ def baue(ziel, strict=False, heute=None, cfg=None):
     shutil.copytree(ROOT / "assets", ziel / "assets")
 
     seiten = [startseite(ctx, geraete), geraete_uebersicht(ctx, geraete), haushalt_seite(ctx, geraete),
-              quiz_seite(ctx, geraete), balkonkraftwerk_seite(ctx)]
+              quiz_seite(ctx, geraete), balkonkraftwerk_seite(ctx),
+              werkzeuge_uebersicht(ctx), standby_seite(ctx), austausch_seite(ctx), zaehler_seite(ctx),
+              wissen_uebersicht(ctx)]
+    seiten += [wissen_artikel(ctx, a) for a in ARTIKEL]
     seiten += [geraeteseite(ctx, g, geraete) for g in geraete]
     seiten += [impressum_seite(ctx), datenschutz_seite(ctx)]
     for seite, inhalt in seiten:
