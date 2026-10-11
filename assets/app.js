@@ -8,6 +8,7 @@
   const STANDARD_PREIS = parseFloat(body.dataset.preis) || SF.preis || 0.35;
   const STUNDEN_JAHR = 8760;
   const nachSlug = Object.fromEntries(SF.geraete.map((g) => [g.s, g]));
+  const BEWEGUNG_AUS = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const $ = (sel, el = document) => el.querySelector(sel);
   const $$ = (sel, el = document) => Array.from(el.querySelectorAll(sel));
 
@@ -28,7 +29,9 @@
   const geraetKwh = (g) => kwhJahr(g.w, g.h, g.nw, g.wj, g.sb);
   const preis = () => { const p = parseFloat(lies("preis", NaN)); return p > 0 && p < 5 ? p : STANDARD_PREIS; };
   const normal = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ß/g, "ss");
-  const vibriere = (muster) => { try { if (navigator.vibrate) navigator.vibrate(muster); } catch (e) { /* egal */ } };
+  const vibriere = (muster) => {
+    try { if (navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) navigator.vibrate(muster); } catch (e) { /* egal */ }
+  };
   // Besucherstatistik (Umami, ohne Cookies) – nur aktiv, wenn in config.json eine Website-ID steht
   const zaehle = (name, daten) => { try { if (window.umami && window.umami.track) window.umami.track(name, daten); } catch (e) { /* egal */ } };
   document.addEventListener("click", (ev) => {
@@ -41,15 +44,17 @@
   // Sanfter Zahlenwechsel für große Ergebniswerte
   function zeigeZahl(el, wert, format) {
     if (!el) return;
-    const start = typeof el._wert === "number" ? el._wert : null;
+    const erstes = typeof el._wert !== "number";
+    const start = erstes ? 0 : el._wert;
     el._wert = wert;
-    if (start === null || matchMedia("(prefers-reduced-motion: reduce)").matches || Math.abs(start - wert) < 0.005) {
+    if (BEWEGUNG_AUS || Math.abs(start - wert) < 0.005) {
       el.textContent = format(wert);
       return;
     }
+    const dauerMs = erstes ? 1000 : 380;
     const t0 = performance.now();
     const schritt = (t) => {
-      const p = Math.min(1, (t - t0) / 380);
+      const p = Math.min(1, (t - t0) / dauerMs);
       const k = 1 - Math.pow(1 - p, 3);
       if (el._wert !== wert) return;
       el.textContent = format(start + (wert - start) * k);
@@ -538,6 +543,7 @@
         : "Stromkosten sind tückisch – genau deshalb lohnt sich der Check.";
       q("rekord").textContent = `Dein Rekord: ${rekord} von ${RUNDEN}`;
       zaehle("quiz-beendet", { punkte });
+      if (punkte >= 7) setTimeout(konfetti, 250);
       vibriere([40, 60, 40]);
     }
     function neuesSpiel() {
@@ -555,6 +561,97 @@
     $("[data-quiz-teilen]", quizEl).addEventListener("click", () =>
       teilen("Stromfresser-Quiz", `⚡ Ich habe ${punkte} von ${RUNDEN} im Stromfresser-Quiz geschafft. Schaffst du mehr?`));
     neuesSpiel();
+  }
+
+  // ------------------------------------------------ Einblenden beim Scrollen (gestaffelt)
+  const EINBLENDEN = ".seitenkopf, .werkzeug-karte, .kennzahlen, .rechner, .produkt, .hinweis-karte, .tipp-karte, .fakt-karte, "
+    + ".kategorie-karte, .faq-eintrag, .geraet-karte, .rangliste, .quiz, .text-karte, .monate, .diagramm-karte, "
+    + ".abschnitt > h2, .abschnitt > .overline, .abschnitt-kopf, .abschnitt > .unterzeile";
+  const ziele = $$(EINBLENDEN).filter((el) => !el.closest(".held"));
+  if ("IntersectionObserver" in window && !BEWEGUNG_AUS) {
+    let gemeldet = false;
+    const beobachter = new IntersectionObserver((eintraege) => {
+      gemeldet = true;
+      eintraege.forEach((e) => {
+        if (!e.isIntersecting) return;
+        e.target.classList.add("sichtbar");
+        beobachter.unobserve(e.target);
+      });
+    }, { rootMargin: "0px 0px -6% 0px", threshold: 0.08 });
+    ziele.forEach((el) => {
+      const geschwister = Array.from(el.parentElement.children).filter((k) => k.matches(EINBLENDEN));
+      el.style.setProperty("--verz", Math.min(geschwister.indexOf(el), 6) * 60 + "ms");
+      el.classList.add("einblenden");
+      beobachter.observe(el);
+    });
+    // Sicherheitsnetz: Inhalte dürfen nie unsichtbar bleiben
+    setTimeout(() => { if (!gemeldet) ziele.forEach((el) => el.classList.add("sichtbar")); }, 2500);
+  } else {
+    ziele.forEach((el) => el.classList.add("sichtbar"));
+  }
+
+  // ------------------------------------------------ Kennzahlen zählen hoch
+  $$("[data-hochzaehlen]").forEach((el) => {
+    const ziel = parseFloat(el.dataset.hochzaehlen);
+    if (BEWEGUNG_AUS || !("IntersectionObserver" in window)) return;
+    el.textContent = "0";
+    const io = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) return;
+      io.disconnect();
+      zeigeZahl(el, ziel, (x) => zahl(Math.round(x)));
+    });
+    io.observe(el);
+  });
+
+  // ------------------------------------------------ Live-Ticker im Kopfbereich
+  const ticker = $("[data-ticker]");
+  if (ticker && SF.geraete.length && !BEWEGUNG_AUS) {
+    const reihe = SF.geraete.slice().sort(() => Math.random() - 0.5);
+    let i = 0;
+    setInterval(() => {
+      if (document.hidden) return;
+      const g = reihe[i++ % reihe.length];
+      ticker.classList.remove("rein");
+      ticker.classList.add("raus");
+      setTimeout(() => {
+        ticker.textContent = `${g.e} ${g.n} · ${euro(geraetKwh(g) * preis())} im Jahr`;
+        ticker.classList.remove("raus");
+        ticker.classList.add("rein");
+      }, 280);
+    }, 2800);
+  }
+
+  // ------------------------------------------------ Konfetti (Quiz-Belohnung)
+  function konfetti() {
+    if (BEWEGUNG_AUS) return;
+    const c = document.createElement("canvas");
+    c.className = "konfetti";
+    const dpr = window.devicePixelRatio || 1;
+    c.width = innerWidth * dpr; c.height = innerHeight * dpr;
+    body.appendChild(c);
+    const ctx = c.getContext("2d");
+    ctx.scale(dpr, dpr);
+    const farben = ["#006C4C", "#6CDBAC", "#FFC94A", "#F7BD48", "#4F86C6", "#B4579B"];
+    const teile = Array.from({ length: 140 }, () => ({
+      x: innerWidth / 2 + (Math.random() - 0.5) * 80, y: innerHeight * 0.35,
+      vx: (Math.random() - 0.5) * 14, vy: -Math.random() * 14 - 4,
+      w: 6 + Math.random() * 6, h: 8 + Math.random() * 8, r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.4,
+      f: farben[Math.floor(Math.random() * farben.length)],
+    }));
+    const t0 = performance.now();
+    const bild = (t) => {
+      const alter = t - t0;
+      ctx.clearRect(0, 0, innerWidth, innerHeight);
+      teile.forEach((s) => {
+        s.vy += 0.35; s.vx *= 0.99; s.x += s.vx; s.y += s.vy; s.r += s.vr;
+        ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.r);
+        ctx.globalAlpha = Math.max(0, 1 - alter / 2400);
+        ctx.fillStyle = s.f; ctx.fillRect(-s.w / 2, -s.h / 2, s.w, s.h * Math.abs(Math.cos(s.r * 2)));
+        ctx.restore();
+      });
+      if (alter < 2400) requestAnimationFrame(bild); else c.remove();
+    };
+    requestAnimationFrame(bild);
   }
 
   // ------------------------------------------------ Installierbare App (PWA)

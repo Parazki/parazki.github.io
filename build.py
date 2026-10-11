@@ -235,7 +235,7 @@ def rangliste(s, geraete, markiert=None, anzahl=None):
         kwh = jahresverbrauch_kwh(g)
         breite = max(2, round(kwh / hoechst * 100))
         klasse = " aktiv" if g["slug"] == markiert else ""
-        zeilen.append(f"""<li><a class="rang-zeile ripple{klasse}" href="{s.link('geraet/' + g['slug'] + '/')}">
+        zeilen.append(f"""<li style="--i:{i}"><a class="rang-zeile ripple{klasse}" href="{s.link('geraet/' + g['slug'] + '/')}">
   <span class="rang-nr">{i}</span><span class="rang-emoji" aria-hidden="true">{g['emoji']}</span>
   <span class="rang-mitte"><span class="rang-name">{e(gross(g['name']))}</span><span class="rang-balken"><span style="width:{breite}%"></span></span></span>
   <span class="rang-preis">{euro_kwh(kwh)}</span></a></li>""")
@@ -285,6 +285,7 @@ def layout(seite, titel, beschreibung, inhalt, aktiv="", extra_head="", index=Tr
 <link rel="manifest" href="{w}manifest.webmanifest">
 <link rel="icon" href="{w}assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="{w}assets/apple-touch-icon.png">
+<script>document.documentElement.classList.add("js")</script>
 <link rel="stylesheet" href="{w}assets/style.css?v={v}">
 {chr(10).join(meta)}
 {extra_head}
@@ -307,9 +308,15 @@ def layout(seite, titel, beschreibung, inhalt, aktiv="", extra_head="", index=Tr
 </main>
 {fab}
 <footer class="fuss">
-  {partner}
-  <p>Alle Werte sind typische Durchschnittswerte und ersetzen keine Messung. Stand: {e(ctx['stand'])}.</p>
-  <p><a href="{w}impressum/">Impressum</a> · <a href="{w}datenschutz/">Datenschutz</a></p>
+  <div class="fuss-marke"><span class="logo">{icon('bolt')}</span><div><strong>{e(ctx['name'])}</strong><small>Stromkosten verstehen. Geld sparen.</small></div></div>
+  <nav class="fuss-links" aria-label="Weitere Seiten">
+    <a href="{w}geraete/">Alle Geräte</a><a href="{w}haushalt/">Mein Haushalt</a><a href="{w}quiz/">Quiz</a>
+    <a href="{w}balkonkraftwerk/">Balkonkraftwerk</a><a href="{w}impressum/">Impressum</a><a href="{w}datenschutz/">Datenschutz</a>
+  </nav>
+  <div class="fuss-recht">
+    {partner}
+    <p>Alle Werte sind typische Durchschnittswerte und ersetzen keine Messung. Stand: {e(ctx['stand'])}.</p>
+  </div>
 </footer>
 <dialog class="dialog" id="preis-dialog">
   <form method="dialog">
@@ -425,6 +432,8 @@ def startseite(ctx, geraete):
         fakten.append(("💡", "Glühbirne gegen LED", f"Eine LED spart gegenüber einer 60-W-Birne rund {euro_kwh(jahresverbrauch_kwh(gb) - jahresverbrauch_kwh(led))} pro Jahr und Lampe."))
     if "smartphone" in nach_slug:
         fakten.append(("📱", "Handy laden", f"kostet im Jahr nur etwa {euro_kwh(jahresverbrauch_kwh(nach_slug['smartphone']))} – weniger als ein Kaffee."))
+    top = sorted(geraete, key=jahresverbrauch_kwh, reverse=True)[0]
+    ticker_start = f"{top['emoji']} {gross(top['name'])} · {euro(jahresverbrauch_kwh(top) * ctx['preis'])} im Jahr"
     fakten_html = "".join(f'<div class="fakt-karte"><span class="fakt-emoji" aria-hidden="true">{em}</span><strong>{e(t)}</strong><p>{txt}</p></div>'
                           for em, t, txt in fakten)
     fragen = [
@@ -444,12 +453,20 @@ def startseite(ctx, geraete):
     <span class="held-marke">{icon('bolt')} Kostenlos · ohne Anmeldung · {len(geraete)} Geräte</span>
     <h1>Was kostet dein Gerät wirklich?</h1>
     <p class="lead">Finde die Stromfresser in deinem Zuhause – mit Rechnern, Spartipps und deinem persönlichen Haushalts-Check.</p>
+    <div class="ticker" aria-hidden="true"><span class="ticker-punkt"></span><span class="ticker-fenster"><span class="ticker-text" data-ticker>{ticker_start}</span></span></div>
   </div>
   <form class="suchleiste" action="{s.link('geraete/')}" method="get" role="search">
     {icon('search')}<input type="search" name="q" placeholder="Gerät suchen …" aria-label="Gerät suchen" autocomplete="off">
     <button class="knopf knopf-gefuellt ripple" type="submit">Suchen</button>
   </form>
   <div class="chip-reihe chip-scroll">{favoriten}</div>
+</section>
+
+<section class="kennzahlen" aria-label="Kennzahlen">
+  <div><b data-hochzaehlen="{len(geraete)}">{len(geraete)}</b><small>Geräte</small></div>
+  <div><b data-hochzaehlen="{len(KATEGORIEN)}">{len(KATEGORIEN)}</b><small>Bereiche</small></div>
+  <div><b>0 €</b><small>kostenlos</small></div>
+  <div><b>{icon('bolt')}</b><small>als App</small></div>
 </section>
 
 <aside class="install-karte" data-install-karte hidden>
@@ -466,23 +483,26 @@ def startseite(ctx, geraete):
 </section>
 
 <section class="abschnitt">
-  <div class="abschnitt-kopf"><h2>Die größten Stromfresser</h2><a class="knopf knopf-text" href="{s.link('geraete/')}">Alle {len(geraete)}{icon('chevron')}</a></div>
+  <div class="abschnitt-kopf"><div><span class="overline">Ranking</span><h2>Die größten Stromfresser</h2></div><a class="knopf knopf-text" href="{s.link('geraete/')}">Alle {len(geraete)}{icon('chevron')}</a></div>
   <p class="unterzeile">Typische Jahreskosten bei <span data-preis-anzeige>{preis_txt} €/kWh</span></p>
   {rangliste(s, geraete, anzahl=10)}
 </section>
 
 <section class="abschnitt">
+  <span class="overline">Fakten</span>
   <h2>Wusstest du?</h2>
   <div class="karussell">{fakten_html}</div>
 </section>
 
 <section class="abschnitt" id="rechner">
+  <span class="overline">Selbst rechnen</span>
   <h2>Freier Stromkosten-Rechner</h2>
   <p class="unterzeile">Leistung steht auf dem Typenschild oder in der Anleitung.</p>
   {rechner_form(ctx)}
 </section>
 
 <section class="abschnitt">
+  <span class="overline">Entdecken</span>
   <h2>Nach Bereich stöbern</h2>
   <div class="kategorie-raster">{kategorien}</div>
 </section>
@@ -559,7 +579,8 @@ def geraeteseite(ctx, g, geraete):
     inhalt = f"""
 <nav class="krumen" aria-label="Brotkrümel"><a href="{s.wurzel}">Start</a>{icon('chevron')}<a href="{s.link('geraete/')}?kat={quote_plus(g['kategorie'])}">{e(g['kategorie'])}</a>{icon('chevron')}<span>{e(gross(name))}</span></nav>
 <section class="seitenkopf">
-  <h1><span class="h1-emoji" aria-hidden="true">{g['emoji']}</span>Wie viel Strom verbraucht {e(voll)}?</h1>
+  <div class="seiten-icon" aria-hidden="true">{g['emoji']}</div>
+  <h1>Wie viel Strom verbraucht {e(voll)}?</h1>
   <p class="lead">{e(gross(voll))} verbraucht bei typischer Nutzung etwa <strong>{zahl(kwh)} kWh pro Jahr</strong>.
   Bei <span data-preis-anzeige>{preis_txt} €/kWh</span> sind das rund <strong>{euro_kwh(kwh)} im Jahr</strong> bzw. <strong>{euro_kwh(kwh, 12)} im Monat</strong>.{standby_html}</p>
 </section>
@@ -573,11 +594,13 @@ def geraeteseite(ctx, g, geraete):
 </section>
 {produkt_karte(ctx, p['label'], p['text'], p['query'], g['emoji'])}
 <section class="abschnitt">
+  <span class="overline">Vergleich</span>
   <h2>{e(g['kategorie'])} im Vergleich</h2>
   <p class="unterzeile">Typische Jahreskosten aller Geräte dieses Bereichs</p>
   {rangliste(s, kategorie, markiert=g['slug'])}
 </section>
 <section class="abschnitt">
+  <span class="overline">Weiterstöbern</span>
   <h2>Ähnlich teuer</h2>
   <div class="karussell">{''.join(geraet_karte(s, x) for x in weitere)}</div>
 </section>
@@ -605,7 +628,8 @@ def haushalt_seite(ctx, geraete):
     ]
     inhalt = f"""
 <section class="seitenkopf">
-  <h1><span class="h1-emoji" aria-hidden="true">🏠</span>Mein Haushalt: Stromkosten aller Geräte</h1>
+  <div class="seiten-icon" aria-hidden="true">🏠</div>
+  <h1>Mein Haushalt: Stromkosten aller Geräte</h1>
   <p class="lead">Stell deine Geräte zusammen und sieh, was dein Haushalt im Jahr an Strom kostet – und wo sich Sparen am meisten lohnt.</p>
 </section>
 <noscript><p class="hinweis-karte">Für den Haushalts-Check muss JavaScript aktiviert sein.</p></noscript>
@@ -664,7 +688,8 @@ def quiz_seite(ctx, geraete):
     s = Seite(ctx, "quiz/")
     inhalt = f"""
 <section class="seitenkopf">
-  <h1><span class="h1-emoji" aria-hidden="true">🧠</span>Stromfresser-Quiz: Was kostet mehr?</h1>
+  <div class="seiten-icon" aria-hidden="true">🧠</div>
+  <h1>Stromfresser-Quiz: Was kostet mehr?</h1>
   <p class="lead">10 Runden, zwei Geräte – tippe auf das, was im Jahr mehr Strom kostet. Die Auflösung zeigt dir sofort die echten Zahlen.</p>
 </section>
 <noscript><p class="hinweis-karte">Für das Quiz muss JavaScript aktiviert sein.</p></noscript>
@@ -728,7 +753,8 @@ def balkonkraftwerk_seite(ctx):
     ]
     inhalt = f"""
 <section class="seitenkopf">
-  <h1><span class="h1-emoji" aria-hidden="true">☀️</span>Balkonkraftwerk-Rechner: Lohnt es sich für dich?</h1>
+  <div class="seiten-icon" aria-hidden="true">☀️</div>
+  <h1>Balkonkraftwerk-Rechner: Lohnt es sich für dich?</h1>
   <p class="lead">Berechne Ertrag, jährliche Ersparnis und Amortisationszeit deines Balkonkraftwerks – mit Ausrichtung, Region und Eigenverbrauch.</p>
 </section>
 <form class="rechner" data-rechner="bkw" onsubmit="return false">
