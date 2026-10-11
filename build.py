@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 from urllib.parse import quote_plus
 
-from wissen import ARTIKEL
+from wissen import ARTIKEL, LEXIKON
 
 ROOT = Path(__file__).resolve().parent
 PLATZHALTER = "BITTE_AUSFUELLEN"
@@ -320,7 +320,7 @@ def layout(seite, titel, beschreibung, inhalt, aktiv="", extra_head="", index=Tr
   <div class="appbar-aktionen">
     {kopf_aktion}
     <button class="icon-knopf ripple" type="button" data-installieren hidden aria-label="Als App installieren" title="Als App installieren">{icon('download')}</button>
-    <a class="icon-knopf ripple" href="{w}geraete/#suche" aria-label="Gerät suchen" title="Gerät suchen">{icon('search')}</a>
+    <a class="icon-knopf ripple" href="{w}geraete/#suche" data-spotlight-oeffnen aria-label="Suchen" title="Suchen (Strg + K)">{icon('search')}</a>
     <button class="icon-knopf ripple" type="button" data-preis-oeffnen aria-label="Strompreis einstellen" title="Strompreis einstellen">{icon('tune')}</button>
   </div>
 </header>
@@ -353,6 +353,13 @@ def layout(seite, titel, beschreibung, inhalt, aktiv="", extra_head="", index=Tr
     </div>
   </form>
 </dialog>
+<div class="spotlight" data-spotlight hidden>
+  <div class="spotlight-panel" role="dialog" aria-modal="true" aria-label="Suche">
+    <label class="spotlight-feld">{icon('search')}<input type="search" placeholder="Geräte, Rechner, Ratgeber, Begriffe …" aria-label="Suchen" data-spotlight-eingabe autocomplete="off" enterkeyhint="go"><button class="icon-knopf" type="button" data-spotlight-zu aria-label="Suche schließen">{icon('close')}</button></label>
+    <div class="spotlight-ergebnisse" data-spotlight-ergebnisse role="listbox"></div>
+    <p class="spotlight-tipp"><kbd>↑</kbd><kbd>↓</kbd> auswählen · <kbd>Enter</kbd> öffnen · <kbd>Esc</kbd> schließen</p>
+  </div>
+</div>
 <div class="snackbar" role="status" aria-live="polite"><span class="snackbar-text"></span><a class="snackbar-aktion" hidden></a></div>
 <script src="{w}assets/daten.js?v={v}" defer></script>
 <script src="{w}assets/app.js?v={v}" defer></script>
@@ -497,9 +504,16 @@ def startseite(ctx, geraete):
   <button class="knopf knopf-gefuellt ripple" type="button" data-installieren-karte>Installieren</button>
 </aside>
 
+<a class="sparcheck-promo ripple" href="{s.link('werkzeuge/spar-check/')}">
+  <span class="sp-emoji" aria-hidden="true">🎯</span>
+  <span class="sp-text"><span class="overline">Neu · 60 Sekunden</span><strong>Wie viel kannst du sparen?</strong><small>8 kurze Fragen – dein persönlicher Sparplan mit Euro-Beträgen.</small></span>
+  <span class="sp-knopf">Starten{icon('chevron')}</span>
+</a>
+
 <section class="werkzeuge">
-  {werkzeug_karten(s, ["haushalt", "zaehler", "quiz", "solar", "standby", "austausch"])}
+  {werkzeug_karten(s, ["haushalt", "zaehler", "tarif", "eauto", "standby", "quiz"])}
 </section>
+<p class="mehr-link"><a class="knopf knopf-text" href="{s.link('werkzeuge/')}">Alle {len(WERKZEUGE) - 1} Werkzeuge ansehen{icon('chevron')}</a></p>
 
 {haus_story(s, ctx)}
 
@@ -624,6 +638,7 @@ def geraeteseite(ctx, g, geraete):
 </section>
 {rechner_form(ctx, g)}
 <div class="hinweis-karte">{icon('info')}<p><strong>Annahme:</strong> {e(g['hinweis'])} Passe die Regler an dein Gerät an.</p></div>
+<div class="knopf-reihe"><a class="knopf knopf-tonal ripple" href="{s.link('werkzeuge/vergleich/')}?a={g['slug']}">⚖️ Mit anderem Gerät vergleichen</a></div>
 <section class="abschnitt">
   <div class="tipp-karte">
     <div class="tipp-kopf">{icon('bulb')}<h2>So sparst du Strom</h2></div>
@@ -917,6 +932,10 @@ WERKZEUGE = {
     "standby": ("werkzeuge/standby/", "🔌", "Standby-Rechner", "Was kosten Geräte, die nie ganz aus sind?", "wk-sekundaer"),
     "austausch": ("werkzeuge/austausch/", "🔁", "Austausch-Rechner", "Lohnt sich ein neues, sparsames Gerät?", "wk-primaer"),
     "frei": ("#rechner", "🧮", "Freier Rechner", "Eigene Watt und Stunden eingeben", ""),
+    "sparcheck": ("werkzeuge/spar-check/", "🎯", "Spar-Check", "8 Fragen – dein persönlicher Sparplan in Euro", "wk-primaer"),
+    "tarif": ("werkzeuge/tarifvergleich/", "🔄", "Tarif-Vergleich", "Lohnt sich ein Anbieterwechsel?", "wk-tertiaer"),
+    "eauto": ("werkzeuge/e-auto/", "🚗", "E-Auto-Ladekosten", "Zu Hause, Ladesäule oder Verbrenner?", "wk-sekundaer"),
+    "vergleich": ("werkzeuge/vergleich/", "⚖️", "Geräte-Vergleich", "Zwei Geräte direkt nebeneinander", ""),
 }
 
 
@@ -1007,7 +1026,7 @@ def werkzeuge_uebersicht(ctx):
   <p class="lead">Rechnen, vergleichen, spielen – kostenlos, ohne Anmeldung und direkt im Browser. Deine Eingaben bleiben auf deinem Gerät.</p>
 </section>
 <section class="werkzeuge werkzeuge-gross">
-  {werkzeug_karten(s, ["haushalt", "zaehler", "standby", "austausch", "solar", "quiz"])}
+  {werkzeug_karten(s, ["sparcheck", "haushalt", "zaehler", "tarif", "eauto", "standby", "austausch", "vergleich", "solar", "quiz"])}
   <a class="werkzeug-karte ripple" href="{s.link('')}#rechner"><span class="wk-emoji" aria-hidden="true">🧮</span><strong>Freier Rechner</strong><small>Eigene Watt und Stunden eingeben</small>{icon('chevron', 'ic wk-pfeil')}</a>
   <a class="werkzeug-karte ripple" href="{s.link('geraete/')}"><span class="wk-emoji" aria-hidden="true">📋</span><strong>Geräte-Rechner</strong><small>52 Geräte mit typischen Werten</small>{icon('chevron', 'ic wk-pfeil')}</a>
 </section>
@@ -1192,6 +1211,7 @@ def wissen_uebersicht(ctx):
   <h1>Strom-Wissen: einfach erklärt</h1>
   <p class="lead">Kurze, verständliche Ratgeber rund um Stromverbrauch, Kosten und Sparen – mit Beispielen und Rechnern zum Ausprobieren.</p>
 </section>
+<a class="cta-karte ripple" href="{s.link('wissen/lexikon/')}"><span class="cta-icon">🔤</span><span><small>Nachschlagen</small><strong>Strom-Lexikon: {len(LEXIKON)} Begriffe von A bis Z</strong></span>{icon('chevron')}</a>
 <section class="artikel-raster">{''.join(artikel_karte(s, a) for a in ARTIKEL)}</section>
 {messgeraet_karte(ctx)}
 """
@@ -1239,6 +1259,277 @@ def wissen_artikel(ctx, a):
     return s, layout(s, f"{a['titel']} ({ctx['jahr']})", a["beschreibung"], inhalt, "wissen", jsonld)
 
 
+# ---------------------------------------------------------------- Spar-Check, Tarife, E-Auto, Vergleich, Lexikon
+
+SPAR_FRAGEN = [
+    ("personen", "👨‍👩‍👧", "Wie viele Personen leben bei dir?", "Damit schätzen wir Warmwasser und Wäsche realistisch ein.",
+     [("1", "🧍", "1"), ("2", "🧑‍🤝‍🧑", "2"), ("3", "👨‍👩‍👦", "3"), ("4", "👨‍👩‍👧‍👦", "4"), ("5", "🏡", "5+")]),
+    ("wasser", "🚿", "Wie wird bei dir Warmwasser erzeugt?", "Steht ein kleiner Kasten unter dem Waschbecken oder an der Dusche, ist es meist ein Durchlauferhitzer.",
+     [("strom", "⚡", "Mit Strom (Durchlauferhitzer, Boiler)"), ("anders", "🔥", "Über die Heizung (Gas, Fernwärme, Wärmepumpe)"), ("unklar", "🤷", "Weiß ich nicht")]),
+    ("kuehl", "🧊", "Wie alt ist dein Kühlschrank?", "Alte Geräte brauchen oft doppelt so viel Strom wie neue.",
+     [("neu", "✨", "Jünger als 5 Jahre"), ("mittel", "🙂", "5 bis 15 Jahre"), ("alt", "🦖", "Älter als 15 Jahre")]),
+    ("trockner", "🌀", "Hast du einen Wäschetrockner?", "Kondens- und Ablufttrockner brauchen deutlich mehr als Wärmepumpentrockner.",
+     [("nein", "🧺", "Nein, Wäscheständer"), ("wp", "🌀", "Ja, Wärmepumpentrockner"), ("kondens", "♨️", "Ja, Kondens- oder Ablufttrockner")]),
+    ("licht", "💡", "Welche Lampen nutzt du?", "Eine LED braucht rund 85 % weniger Strom als eine Glühbirne.",
+     [("led", "🔆", "Fast nur LED"), ("gemischt", "🌗", "Gemischt"), ("alt", "💡", "Noch viele Glüh- oder Halogenlampen")]),
+    ("standby", "🔌", "Wie viele Geräte sind nie ganz aus?", "Fernseher, Konsole, Receiver, Drucker, Lautsprecher, Ladegeräte …",
+     [("wenig", "🙂", "Kaum welche"), ("einige", "📺", "Einige"), ("viel", "🔌", "Sehr viele")]),
+    ("heizen", "🌬️", "Heizt du manchmal mit Strom?", "Zum Beispiel mit Heizlüfter, Radiator oder Infrarotheizung.",
+     [("nie", "🙅", "Nie"), ("manchmal", "🌤️", "Manchmal"), ("oft", "❄️", "Regelmäßig im Winter")]),
+    ("waschen", "🫧", "Mit wie viel Grad wäschst du meistens?", "Das Aufheizen des Wassers macht den Großteil des Verbrauchs aus.",
+     [("30", "🧊", "20–30 °C"), ("40", "🌡️", "40 °C"), ("60", "🔥", "60 °C und mehr")]),
+]
+
+
+def lexikon_slug(begriff):
+    s = begriff.lower()
+    for a, b in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+        s = s.replace(a, b)
+    return "".join(c if c.isalnum() else "-" for c in s).strip("-").replace("--", "-")
+
+
+def sc_frage(i, key, em, frage, hilfe, optionen):
+    knoepfe = "".join('<button type="button" class="sc-option ripple" data-wert="%s"><span aria-hidden="true">%s</span><b>%s</b></button>'
+                      % (w, oe, e(label)) for w, oe, label in optionen)
+    versteckt = "" if i == 0 else " hidden"
+    return ('<fieldset class="sc-frage" data-frage="%s" data-index="%d"%s>'
+            '<legend><span class="sc-emoji" aria-hidden="true">%s</span>%s</legend>'
+            '<p class="sc-hilfe">%s</p><div class="sc-optionen">%s</div></fieldset>'
+            % (key, i, versteckt, em, e(frage), e(hilfe), knoepfe))
+
+
+def spar_check_seite(ctx):
+    s = Seite(ctx, "werkzeuge/spar-check/")
+    fragen = "".join(sc_frage(i, *f) for i, f in enumerate(SPAR_FRAGEN))
+    faq = [
+        ("Wie genau ist der Spar-Check?", "Er rechnet mit typischen Durchschnittswerten und zeigt, wo sich Sparen am wahrscheinlichsten lohnt. Für genaue Zahlen nutze die Geräte-Rechner oder ein Strommessgerät."),
+        ("Werden meine Antworten gespeichert?", "Nur auf deinem Gerät, damit dein Ergebnis beim nächsten Besuch noch da ist. Es wird nichts übertragen."),
+        ("Was bringt am meisten?", "Meist die großen Wärmeverbraucher: Warmwasser über Strom, elektrisches Heizen und alte Trockner. Danach folgen Licht und Standby."),
+    ]
+    inhalt = f"""
+<nav class="krumen" aria-label="Brotkrümel"><a href="{s.wurzel}">Start</a>{icon('chevron')}<a href="{s.link('werkzeuge/')}">Werkzeuge</a>{icon('chevron')}<span>Spar-Check</span></nav>
+<section class="seitenkopf">
+  <div class="seiten-icon" aria-hidden="true">🎯</div>
+  <h1>Spar-Check: dein persönlicher Sparplan in 60 Sekunden</h1>
+  <p class="lead">Beantworte {len(SPAR_FRAGEN)} kurze Fragen – und sieh sofort, welche Maßnahmen bei dir am meisten bringen, in Euro pro Jahr.</p>
+</section>
+<noscript><p class="hinweis-karte">Für den Spar-Check muss JavaScript aktiviert sein.</p></noscript>
+<div class="spar-check" data-spar-check>
+  <div class="sc-spiel">
+    <div class="quiz-kopf"><span data-sc-schritt>Frage 1 von {len(SPAR_FRAGEN)}</span>
+      <button class="knopf knopf-text" type="button" data-sc-zurueck hidden>{icon('chevron', 'ic zurueck-pfeil')}Zurück</button></div>
+    <div class="fortschritt"><span data-sc-fortschritt style="width:0%"></span></div>
+    {fragen}
+  </div>
+  <div class="sc-ergebnis" data-sc-ergebnis hidden>
+    <div class="ergebnis-held">
+      <div class="eh-kopf"><span class="eh-emoji" aria-hidden="true">🎯</span><span class="eh-label">Dein Sparpotenzial pro Jahr</span></div>
+      <div class="eh-wert" data-sc-summe>0 €</div>
+      <div class="eh-chips">
+        <span class="eh-chip"><b data-sc-kwh>0 kWh</b> weniger</span>
+        <span class="eh-chip"><b data-sc-anzahl>0</b> Maßnahmen</span>
+        <span class="eh-chip"><b data-sc-zehn>0 €</b> in 10 Jahren</span>
+      </div>
+    </div>
+    <section class="abschnitt"><span class="overline">Dein Sparplan</span><h2>Das bringt bei dir am meisten</h2>
+      <div class="sc-massnahmen" data-sc-massnahmen></div></section>
+    <a class="cta-karte ripple" href="{s.link('werkzeuge/tarifvergleich/')}"><span class="cta-icon">{icon('wrench')}</span><span><small>Extra-Tipp</small><strong>Tarif prüfen – oft die schnellste Ersparnis</strong></span>{icon('chevron')}</a>
+    <div class="knopf-reihe knopf-reihe-mitte">
+      <button class="knopf knopf-tonal ripple" type="button" data-sc-teilen>{icon('share')}Ergebnis teilen</button>
+      <button class="knopf knopf-text ripple" type="button" data-sc-neu>{icon('refresh')}Neu starten</button>
+    </div>
+    <p class="unterzeile">Grobe Schätzung auf Basis typischer Werte – „bis zu“-Beträge.</p>
+  </div>
+</div>
+{faq_html(faq)}
+"""
+    return s, layout(s, "Spar-Check: Persönlicher Strom-Sparplan in 60 Sekunden",
+                     "Beantworte 8 kurze Fragen und erhalte deinen persönlichen Strom-Sparplan mit Euro-Beträgen pro Maßnahme – kostenlos.",
+                     inhalt, "werkzeuge", faq_jsonld(faq))
+
+
+def kosten_balken(name):
+    return f'<div class="kosten-balken karte-flach" data-balken="{name}"></div>'
+
+
+def tarif_seite(ctx):
+    s = Seite(ctx, "werkzeuge/tarifvergleich/")
+    ap = round(ctx["preis"] * 100, 1)
+    faq = [
+        ("Wie vergleiche ich Stromtarife richtig?", "Rechne die Gesamtkosten für deinen Verbrauch aus: Arbeitspreis × kWh + 12 × Grundpreis. Ein Bonus gilt meist nur im ersten Jahr – vergleiche deshalb auch das zweite Jahr."),
+        ("Wo finde ich meinen Arbeits- und Grundpreis?", "Auf deiner letzten Stromrechnung oder im Vertrag. Der Arbeitspreis steht in Cent pro kWh, der Grundpreis in Euro pro Monat oder Jahr."),
+        ("Ist ein Anbieterwechsel kompliziert?", "Nein. Meist kündigt der neue Anbieter für dich, und die Versorgung läuft ohne Unterbrechung weiter."),
+    ]
+    inhalt = f"""
+<nav class="krumen" aria-label="Brotkrümel"><a href="{s.wurzel}">Start</a>{icon('chevron')}<a href="{s.link('werkzeuge/')}">Werkzeuge</a>{icon('chevron')}<span>Tarif-Vergleich</span></nav>
+<section class="seitenkopf">
+  <div class="seiten-icon" aria-hidden="true">🔄</div>
+  <h1>Tarif-Vergleich: Lohnt sich ein Wechsel?</h1>
+  <p class="lead">Vergleiche deinen aktuellen Stromtarif mit einem neuen Angebot – im ersten Jahr mit Bonus und ab dem zweiten Jahr ohne.</p>
+</section>
+<form class="rechner" data-rechner="tarif" onsubmit="return false">
+  <div class="ergebnis-held" data-tarif-ergebnis>
+    <div class="eh-kopf"><span class="eh-emoji" aria-hidden="true">🔄</span><span class="eh-label" data-aus="label">Ersparnis im ersten Jahr</span></div>
+    <div class="eh-wert" data-aus="ersparnis">0 €</div>
+    <div class="eh-chips">
+      <span class="eh-chip">ab Jahr 2: <b data-aus="ersparnis2">0 €</b></span>
+      <span class="eh-chip">bisher <b data-aus="alt">0 €</b> / Jahr</span>
+    </div>
+  </div>
+  <div class="rechner-felder">
+    {schieber("verbrauch", "Dein Jahresverbrauch", 2500, 500, 8000, 50, "kWh", "2.500 kWh")}
+    <button class="knopf knopf-tonal ripple" type="button" data-aus-haushalt hidden>{icon('pie')}Verbrauch aus „Mein Haushalt“ übernehmen</button>
+    <h3 class="feld-gruppe">Dein aktueller Tarif</h3>
+    <div class="feld-paar">{zahlenfeld("alt_ap", "Arbeitspreis", ap, "ct/kWh")}{zahlenfeld("alt_gp", "Grundpreis", 12, "€/Monat")}</div>
+    <h3 class="feld-gruppe">Neuer Tarif</h3>
+    <div class="feld-paar">{zahlenfeld("neu_ap", "Arbeitspreis", round(ap - 4, 1), "ct/kWh")}{zahlenfeld("neu_gp", "Grundpreis", 13, "€/Monat")}</div>
+    {zahlenfeld("bonus", "Einmaliger Bonus", 50, "€")}
+  </div>
+</form>
+<section class="abschnitt"><span class="overline">Kosten im Vergleich</span><h2>Was du pro Jahr zahlst</h2>{kosten_balken("tarif")}</section>
+<a class="cta-karte ripple" href="{s.link('wissen/stromanbieter-wechseln/')}"><span class="cta-icon">{icon('book')}</span><span><small>Ratgeber</small><strong>Stromanbieter wechseln – so geht's</strong></span>{icon('chevron')}</a>
+{faq_html(faq)}
+"""
+    return s, layout(s, "Stromtarif-Vergleich: Lohnt sich ein Anbieterwechsel? (Rechner)",
+                     "Kostenloser Rechner: Vergleiche deinen Stromtarif mit einem neuen Angebot – inklusive Bonus, Grundpreis und Kosten ab dem zweiten Jahr.",
+                     inhalt, "werkzeuge", faq_jsonld(faq))
+
+
+def eauto_seite(ctx):
+    s = Seite(ctx, "werkzeuge/e-auto/")
+    faq = [
+        ("Was kostet ein E-Auto pro 100 km?", "Verbrauch in kWh pro 100 km × Strompreis, plus etwa 10 % Ladeverluste. Bei 17 kWh und 0,35 €/kWh sind das grob 6,50 € zu Hause."),
+        ("Warum rechnet der Rechner mit Ladeverlusten?", "Beim Laden geht ein Teil der Energie als Wärme verloren. Bezahlt wird der Strom aus der Steckdose, nicht nur der, der im Akku ankommt."),
+        ("Welcher Preis gilt an Ladesäulen?", "Das ist je nach Anbieter, Ladetarif und Ladeleistung sehr unterschiedlich. Trag am besten den Preis ein, den du tatsächlich zahlst."),
+    ]
+    inhalt = f"""
+<nav class="krumen" aria-label="Brotkrümel"><a href="{s.wurzel}">Start</a>{icon('chevron')}<a href="{s.link('werkzeuge/')}">Werkzeuge</a>{icon('chevron')}<span>E-Auto</span></nav>
+<section class="seitenkopf">
+  <div class="seiten-icon" aria-hidden="true">🚗</div>
+  <h1>E-Auto-Ladekosten: zu Hause, Ladesäule oder Verbrenner?</h1>
+  <p class="lead">Rechne aus, was dein E-Auto pro Jahr und pro 100 km kostet – und wie viel du gegenüber einem Benziner sparst.</p>
+</section>
+<form class="rechner" data-rechner="eauto" onsubmit="return false">
+  <div class="ergebnis-held">
+    <div class="eh-kopf"><span class="eh-emoji" aria-hidden="true">🚗</span><span class="eh-label" data-aus="label">Ersparnis gegenüber Verbrenner</span></div>
+    <div class="eh-wert" data-aus="ersparnis">0 €</div>
+    <div class="eh-chips">
+      <span class="eh-chip">E-Auto <b data-aus="e_jahr">0 €</b> / Jahr</span>
+      <span class="eh-chip"><b data-aus="e_100">0 €</b> pro 100 km</span>
+      <span class="eh-chip"><b data-aus="kwh">0 kWh</b> Strom</span>
+    </div>
+  </div>
+  <div class="rechner-felder">
+    {schieber("km", "Kilometer pro Jahr", 12000, 2000, 40000, 500, "km", "12.000 km")}
+    {schieber("verbrauch", "Verbrauch E-Auto", 17, 12, 30, 0.5, "kWh/100 km", "17 kWh/100 km")}
+    {schieber("anteil", "Davon zu Hause geladen", 80, 0, 100, 5, "%", "80 %")}
+    <div class="feld-paar">{zahlenfeld("preis", "Strompreis zu Hause", ctx["preis"], "€/kWh")}{zahlenfeld("saeule", "Ladesäule", 0.59, "€/kWh")}</div>
+    <h3 class="feld-gruppe">Vergleich: Verbrenner</h3>
+    <div class="feld-paar">{zahlenfeld("liter", "Verbrauch", 6.5, "l/100 km")}{zahlenfeld("sprit", "Spritpreis", 1.75, "€/l")}</div>
+  </div>
+</form>
+<section class="abschnitt"><span class="overline">Kosten pro Jahr</span><h2>E-Auto gegen Verbrenner</h2>{kosten_balken("eauto")}</section>
+<div class="hinweis-karte">{icon('info')}<p>Gerechnet mit etwa 10 % Ladeverlusten. Kosten für Wartung, Versicherung, Steuer und Anschaffung sind nicht enthalten. Der Ladesäulenpreis ist eine Annahme – trag deinen eigenen ein.</p></div>
+<a class="cta-karte ripple" href="{s.link('wissen/e-auto-laden/')}"><span class="cta-icon">{icon('book')}</span><span><small>Ratgeber</small><strong>E-Auto zu Hause laden – Kosten und Tipps</strong></span>{icon('chevron')}</a>
+{produkt_karte(ctx, "Typ-2-Ladekabel", "Für öffentliche Ladesäulen und Wallboxen.", "Typ 2 Ladekabel 11 kW", "🔌")}
+{faq_html(faq)}
+"""
+    return s, layout(s, "E-Auto-Ladekosten-Rechner: Kosten pro 100 km & Vergleich mit Verbrenner",
+                     "Berechne die Ladekosten deines E-Autos zu Hause und an der Ladesäule – pro Jahr, pro 100 km und im Vergleich zum Benziner.",
+                     inhalt, "werkzeuge", faq_jsonld(faq))
+
+
+def vergleich_seite(ctx, geraete):
+    s = Seite(ctx, "werkzeuge/vergleich/")
+    nach_slug = {g["slug"]: g for g in geraete}
+    optionen = lambda gewaehlt: "".join(
+        f'<option value="{g["slug"]}"{" selected" if g["slug"] == gewaehlt else ""}>{g["emoji"]} {e(gross(g["name"]))}</option>'
+        for g in sorted(geraete, key=lambda x: gross(x["name"])))
+
+    def spalte(seite, slug):
+        g = nach_slug[slug]
+        kwh = jahresverbrauch_kwh(g)
+        p = ctx["preis"]
+        link = s.link("geraet/" + slug + "/")
+        pfeil = icon("chevron")
+        return (f'<div class="vg-spalte" data-vg="{seite}">'
+                f'<span class="vg-emoji" data-vg-emoji aria-hidden="true">{g["emoji"]}</span>'
+                f'<strong class="vg-name" data-vg-name>{e(gross(g["name"]))}</strong>'
+                f'<span class="vg-wert" data-vg-euro>{euro(kwh * p)}</span><small>pro Jahr</small>'
+                f'<ul class="vg-details"><li><span>pro Monat</span><b data-vg-monat>{euro(kwh * p / 12)}</b></li>'
+                f'<li><span>pro Tag</span><b data-vg-tag>{zahl(kwh * p / 365 * 100, 1)} ct</b></li>'
+                f'<li><span>Verbrauch</span><b data-vg-kwh>{zahl(kwh)} kWh</b></li></ul>'
+                f'<a class="knopf knopf-text" data-vg-link href="{link}">Zum Rechner{pfeil}</a></div>')
+    inhalt = f"""
+<nav class="krumen" aria-label="Brotkrümel"><a href="{s.wurzel}">Start</a>{icon('chevron')}<a href="{s.link('werkzeuge/')}">Werkzeuge</a>{icon('chevron')}<span>Vergleich</span></nav>
+<section class="seitenkopf">
+  <div class="seiten-icon" aria-hidden="true">⚖️</div>
+  <h1>Geräte-Vergleich: Was kostet mehr Strom?</h1>
+  <p class="lead">Wähle zwei Geräte und vergleiche ihre typischen Stromkosten direkt nebeneinander.</p>
+</section>
+<form class="vergleich" data-vergleich onsubmit="return false">
+  <div class="feld-paar">
+    <label class="feld"><span class="feld-label">Gerät A</span><span class="feld-rahmen"><select name="a">{optionen("kuehlschrank")}</select></span></label>
+    <label class="feld"><span class="feld-label">Gerät B</span><span class="feld-rahmen"><select name="b">{optionen("fernseher")}</select></span></label>
+  </div>
+  <div class="vg-raster">{spalte("a", "kuehlschrank")}<div class="vg-gegen" aria-hidden="true">vs</div>{spalte("b", "fernseher")}</div>
+  <p class="vg-fazit" data-vg-fazit></p>
+</form>
+<div class="hinweis-karte">{icon('info')}<p>Verglichen werden typische Nutzungsannahmen. Auf den Geräteseiten passt du Leistung und Laufzeit an dein Gerät an.</p></div>
+"""
+    return s, layout(s, "Geräte-Vergleich: Stromkosten zweier Geräte direkt vergleichen",
+                     "Vergleiche die Stromkosten von zwei Haushaltsgeräten nebeneinander – pro Jahr, Monat und Tag.",
+                     inhalt, "werkzeuge")
+
+
+def lexikon_seite(ctx):
+    s = Seite(ctx, "wissen/lexikon/")
+    buchstaben = sorted({b[0].upper() for b, _ in LEXIKON})
+    chips = "".join(f'<a class="chip ripple" href="#buchstabe-{b}">{b}</a>' for b in buchstaben)
+    gruppen = []
+    for b in buchstaben:
+        eintraege = "".join(
+            f'<div class="lex-eintrag" id="{lexikon_slug(begriff)}" data-lex="{e(begriff.lower())} {e(text.lower())}"><dt>{e(begriff)}</dt><dd>{e(text)}</dd></div>'
+            for begriff, text in LEXIKON if begriff[0].upper() == b)
+        gruppen.append(f'<section class="lex-gruppe" id="buchstabe-{b}"><h2>{b}</h2><dl>{eintraege}</dl></section>')
+    jsonld = '<script type="application/ld+json">' + json.dumps({
+        "@context": "https://schema.org", "@type": "DefinedTermSet", "name": "Strom-Lexikon", "inLanguage": "de",
+        "hasDefinedTerm": [{"@type": "DefinedTerm", "name": b, "description": t, "url": f"{s.kanonisch}#{lexikon_slug(b)}"} for b, t in LEXIKON],
+    }, ensure_ascii=False) + "</script>"
+    inhalt = f"""
+<nav class="krumen" aria-label="Brotkrümel"><a href="{s.wurzel}">Start</a>{icon('chevron')}<a href="{s.link('wissen/')}">Wissen</a>{icon('chevron')}<span>Lexikon</span></nav>
+<section class="seitenkopf">
+  <div class="seiten-icon" aria-hidden="true">🔤</div>
+  <h1>Strom-Lexikon: {len(LEXIKON)} Begriffe einfach erklärt</h1>
+  <p class="lead">Von Abschlag bis Wirkungsgrad – die wichtigsten Begriffe rund um Stromrechnung, Zähler und Solar in einem Satz erklärt.</p>
+</section>
+<label class="suchleiste suchleiste-klein lex-suche">{icon('search')}<input type="search" placeholder="Begriff suchen" aria-label="Begriff suchen" data-lex-suche autocomplete="off"></label>
+<nav class="chip-reihe chip-scroll" aria-label="Buchstaben">{chips}</nav>
+<div class="lexikon" data-lexikon>{''.join(gruppen)}</div>
+<div class="leer" data-lex-leer hidden><span aria-hidden="true">🔍</span><p>Kein Begriff gefunden.</p></div>
+"""
+    return s, layout(s, f"Strom-Lexikon: {len(LEXIKON)} Begriffe von Abschlag bis Wirkungsgrad",
+                     "Strom-Lexikon: Arbeitspreis, Grundpreis, kWh, kWp, Smart Meter, Wechselrichter und mehr – einfach erklärt.",
+                     inhalt, "wissen", jsonld)
+
+
+def such_index(geraete):
+    """Einträge für die globale Suche (Spotlight), relativ zur Website-Wurzel."""
+    eintraege = [
+        {"t": "Alle Geräte", "u": "geraete/", "e": "📋", "k": "Seite"},
+        {"t": "Mein Haushalt", "u": "haushalt/", "e": "🏠", "k": "Werkzeug"},
+        {"t": "Alle Werkzeuge", "u": "werkzeuge/", "e": "🧰", "k": "Seite"},
+        {"t": "Strom-Wissen", "u": "wissen/", "e": "📚", "k": "Seite"},
+        {"t": "Strom-Lexikon", "u": "wissen/lexikon/", "e": "🔤", "k": "Seite"},
+    ]
+    for key, (ziel, emoji, titel, text, _) in WERKZEUGE.items():
+        if not ziel.startswith("#") and key != "haushalt":
+            eintraege.append({"t": titel, "u": ziel, "e": emoji, "k": "Werkzeug", "d": text})
+    eintraege += [{"t": a["titel"], "u": f"wissen/{a['slug']}/", "e": a["emoji"], "k": "Ratgeber", "d": a["kurz"]} for a in ARTIKEL]
+    eintraege += [{"t": b, "u": f"wissen/lexikon/#{lexikon_slug(b)}", "e": "🔤", "k": "Lexikon", "d": t} for b, t in LEXIKON]
+    return eintraege
+
+
 # ---------------------------------------------------------------- App-Dateien (PWA)
 
 def daten_js(ctx, geraete):
@@ -1249,6 +1540,8 @@ def daten_js(ctx, geraete):
         "vorlage": HAUSHALT_VORLAGE,
         "solar": SOLAR_MONATE,
         "austausch": [{"k": k, "alt": a, "neu": n, "kosten": c} for k, _, _, a, n, c in AUSTAUSCH_VORLAGEN],
+        "seiten": such_index(geraete),
+        "tag": ctx["tag"],
         "geraete": [{"s": g["slug"], "e": g["emoji"], "n": gross(g["name"]), "nm": g["name"], "a": g["artikel"], "k": g["kategorie"],
                      "w": g["leistung_w"], "h": g["stunden"], "nw": g["nutzungen_woche"],
                      "wj": g.get("wochen_jahr", 52), "sb": g.get("standby_w", 0) or 0, "t": g["tipp"]}
@@ -1278,6 +1571,7 @@ def manifest(ctx):
         "categories": ["utilities", "lifestyle"],
         "icons": icons,
         "shortcuts": [
+            {"name": "Spar-Check", "short_name": "Spar-Check", "url": "werkzeuge/spar-check/", "icons": kurz},
             {"name": "Mein Haushalt", "short_name": "Haushalt", "url": "haushalt/", "icons": kurz},
             {"name": "Zählerstand-Rechner", "short_name": "Zähler", "url": "werkzeuge/zaehlerstand/", "icons": kurz},
             {"name": "Stromfresser-Quiz", "short_name": "Quiz", "url": "quiz/", "icons": kurz},
@@ -1287,7 +1581,7 @@ def manifest(ctx):
 
 
 def service_worker(version):
-    vorab = ["./", "geraete/", "haushalt/", "wissen/", "werkzeuge/", "quiz/", "balkonkraftwerk/", "manifest.webmanifest",
+    vorab = ["./", "geraete/", "haushalt/", "wissen/", "werkzeuge/", "werkzeuge/spar-check/", "quiz/", "balkonkraftwerk/", "manifest.webmanifest",
              f"assets/style.css?v={version}", f"assets/app.js?v={version}", f"assets/daten.js?v={version}",
              "assets/icon.svg", "assets/icon-192.png"]
     return f"""// Service Worker: macht die Seite installierbar und offline nutzbar. Von build.py erzeugt.
@@ -1397,7 +1691,8 @@ def baue(ziel, strict=False, heute=None, cfg=None):
     seiten = [startseite(ctx, geraete), geraete_uebersicht(ctx, geraete), haushalt_seite(ctx, geraete),
               quiz_seite(ctx, geraete), balkonkraftwerk_seite(ctx),
               werkzeuge_uebersicht(ctx), standby_seite(ctx), austausch_seite(ctx), zaehler_seite(ctx),
-              wissen_uebersicht(ctx)]
+              spar_check_seite(ctx), tarif_seite(ctx), eauto_seite(ctx), vergleich_seite(ctx, geraete),
+              wissen_uebersicht(ctx), lexikon_seite(ctx)]
     seiten += [wissen_artikel(ctx, a) for a in ARTIKEL]
     seiten += [geraeteseite(ctx, g, geraete) for g in geraete]
     seiten += [impressum_seite(ctx), datenschutz_seite(ctx)]

@@ -146,6 +146,10 @@
     modul: (v) => zahl(v) + " Wp",
     eigen: (v) => zahl(v) + " %",
     kosten: (v) => zahl(v) + " €",
+    "tarif:verbrauch": (v) => zahl(v) + " kWh",
+    "eauto:verbrauch": (v) => zahl(v, v % 1 ? 1 : 0) + " kWh/100 km",
+    "eauto:km": (v) => zahl(v) + " km",
+    "eauto:anteil": (v) => zahl(v) + " %",
   };
   function setzeSchieberFarbe(s) {
     const min = parseFloat(s.min) || 0, max = parseFloat(s.max) || 100;
@@ -155,7 +159,8 @@
     $$(".schieber[data-fuer]", form).forEach((s) => {
       const feld = form.elements[s.dataset.fuer];
       const anzeige = $(`[data-anzeige="${s.dataset.fuer}"]`, form);
-      const zeige = () => { if (anzeige && anzeigeText[s.dataset.fuer]) anzeige.textContent = anzeigeText[s.dataset.fuer](parseFloat(feld.value) || 0); };
+      const fn = anzeigeText[(form.dataset.rechner || "") + ":" + s.dataset.fuer] || anzeigeText[s.dataset.fuer];
+      const zeige = () => { if (anzeige && fn) anzeige.textContent = fn(parseFloat(feld.value) || 0); };
       s.addEventListener("input", () => { feld.value = s.value; setzeSchieberFarbe(s); zeige(); beiAenderung(); });
       feld.addEventListener("input", () => {
         const v = parseFloat(feld.value) || 0;
@@ -437,6 +442,310 @@
     addEventListener("scroll", anstossen, { passive: true });
     addEventListener("resize", anstossen);
     scrollBild();
+  }
+
+  // ------------------------------------------------ Gemeinsame Helfer: Kosten-Balken & Amazon-Links
+  function zeichneBalken(name, zeilen) {
+    const el = $(`[data-balken="${name}"]`);
+    if (!el) return;
+    const max = Math.max(1, ...zeilen.map((z) => z.wert));
+    if (el.children.length !== zeilen.length) {
+      el.innerHTML = zeilen.map(() => '<div class="kb-zeile"><span></span><span class="kb-spur"><i></i></span><b></b></div>').join("");
+    }
+    zeilen.forEach((z, i) => {
+      const zeile = el.children[i];
+      zeile.className = "kb-zeile " + (z.klasse || "");
+      zeile.children[0].textContent = z.name;
+      $("i", zeile).style.width = Math.max(1, z.wert / max * 100) + "%";
+      zeile.children[2].textContent = euro(z.wert);
+    });
+  }
+  const amazonLink = (q) => "https://www.amazon.de/s?k=" + encodeURIComponent(q).replace(/%20/g, "+") + (SF.tag ? "&tag=" + encodeURIComponent(SF.tag) : "");
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // ------------------------------------------------ Tarif-Vergleich
+  $$('form[data-rechner="tarif"]').forEach((form) => {
+    const aus = (k) => $(`[data-aus="${k}"]`, form);
+    const held = $("[data-tarif-ergebnis]", form);
+    const r = {
+      rechne() {
+        const v = wert(form, "verbrauch");
+        const alt = v * wert(form, "alt_ap") / 100 + 12 * wert(form, "alt_gp");
+        const neu2 = v * wert(form, "neu_ap") / 100 + 12 * wert(form, "neu_gp");
+        const neu1 = Math.max(0, neu2 - wert(form, "bonus"));
+        const e1 = alt - neu1, e2 = alt - neu2;
+        held.classList.toggle("guthaben", e1 >= 0);
+        held.classList.toggle("nachzahlung", e1 < 0);
+        aus("label").textContent = e1 >= 0 ? "Ersparnis im ersten Jahr" : "Mehrkosten im ersten Jahr";
+        zeigeZahl(aus("ersparnis"), Math.abs(e1), euro);
+        aus("ersparnis2").textContent = (e2 < 0 ? "−" : "") + euro(Math.abs(e2));
+        aus("alt").textContent = euro(alt);
+        zeichneBalken("tarif", [
+          { name: "Bisher", wert: alt, klasse: "warm" },
+          { name: "Neu, 1. Jahr", wert: neu1 },
+          { name: "Neu, ab Jahr 2", wert: neu2, klasse: "gold" },
+        ]);
+      },
+    };
+    const hhKnopf = $("[data-aus-haushalt]", form);
+    const hh = lies("haushalt", []).filter((x) => nachSlug[x.s]);
+    if (hhKnopf && hh.length) {
+      hhKnopf.hidden = false;
+      hhKnopf.addEventListener("click", () => {
+        const kwh = hh.reduce((s, x) => s + kwhJahr(x.w, x.h, x.n, x.wj, x.sb) * (x.m || 1), 0);
+        form.elements.verbrauch.value = Math.max(500, Math.round(kwh / 50) * 50);
+        $$(".schieber[data-fuer]", form).forEach((s) => s._sync());
+        r.rechne();
+        snackbar(`${zahl(kwh)} kWh aus „Mein Haushalt“ übernommen`);
+      });
+    }
+    verbindeRegler(form, () => r.rechne());
+    form.addEventListener("input", () => r.rechne());
+    r.rechne();
+    rechner.push(r);
+  });
+
+  // ------------------------------------------------ E-Auto-Ladekosten
+  $$('form[data-rechner="eauto"]').forEach((form) => {
+    const aus = (k) => $(`[data-aus="${k}"]`, form);
+    const anteil = () => { const v = parseFloat(form.elements.anteil.value); return isFinite(v) ? Math.min(100, Math.max(0, v)) / 100 : 0.8; };
+    const r = {
+      rechne() {
+        const km = wert(form, "km");
+        const kwh = km / 100 * wert(form, "verbrauch") * 1.1;
+        const a = anteil();
+        const kostenE = kwh * (a * preis() + (1 - a) * wert(form, "saeule"));
+        const kostenV = km / 100 * wert(form, "liter") * wert(form, "sprit");
+        const diff = kostenV - kostenE;
+        aus("label").textContent = diff >= 0 ? "Ersparnis gegenüber Verbrenner" : "Mehrkosten gegenüber Verbrenner";
+        zeigeZahl(aus("ersparnis"), Math.abs(diff), euro);
+        aus("e_jahr").textContent = euro(kostenE);
+        aus("e_100").textContent = euro(km > 0 ? kostenE / km * 100 : 0);
+        aus("kwh").textContent = zahl(kwh) + " kWh";
+        zeichneBalken("eauto", [{ name: "E-Auto", wert: kostenE }, { name: "Verbrenner", wert: kostenV, klasse: "warm" }]);
+      },
+    };
+    verbindeRegler(form, () => r.rechne());
+    form.addEventListener("input", (ev) => {
+      if (ev.target.name === "preis") { setzePreis(wert(form, "preis")); return; }
+      r.rechne();
+    });
+    r.rechne();
+    rechner.push(r);
+  });
+
+  // ------------------------------------------------ Geräte-Vergleich
+  const vgForm = $("[data-vergleich]");
+  if (vgForm) {
+    const params = new URLSearchParams(location.search);
+    ["a", "b"].forEach((k) => { if (nachSlug[params.get(k)]) vgForm.elements[k].value = params.get(k); });
+    const r = {
+      rechne() {
+        const p = preis();
+        const g = { a: nachSlug[vgForm.elements.a.value], b: nachSlug[vgForm.elements.b.value] };
+        const kwh = { a: geraetKwh(g.a), b: geraetKwh(g.b) };
+        ["a", "b"].forEach((k) => {
+          const sp = $(`[data-vg="${k}"]`, vgForm);
+          const em = $("[data-vg-emoji]", sp);
+          if (em.textContent !== g[k].e) { em.textContent = g[k].e; em.style.animation = "none"; void em.offsetWidth; em.style.animation = ""; }
+          $("[data-vg-name]", sp).textContent = g[k].n;
+          zeigeZahl($("[data-vg-euro]", sp), kwh[k] * p, euro);
+          $("[data-vg-monat]", sp).textContent = euro(kwh[k] * p / 12);
+          $("[data-vg-tag]", sp).textContent = zahl(kwh[k] * p / 365 * 100, 1) + " ct";
+          $("[data-vg-kwh]", sp).textContent = zahl(kwh[k]) + " kWh";
+          $("[data-vg-link]", sp).href = `${ROOT}geraet/${g[k].s}/`;
+          sp.classList.toggle("gewinner", kwh[k] > kwh[k === "a" ? "b" : "a"]);
+        });
+        const [teuer, guenstig] = kwh.a >= kwh.b ? ["a", "b"] : ["b", "a"];
+        const faktor = kwh[teuer] / Math.max(0.01, kwh[guenstig]);
+        const artikel = (x) => (x.a === "eine" ? "eine" : "ein");
+        $("[data-vg-fazit]", vgForm).innerHTML = g.a === g.b ? "Wähle zwei verschiedene Geräte."
+          : `${artikel(g[teuer]).replace(/^./, (c) => c.toUpperCase())} ${esc(g[teuer].nm)} kostet im Jahr <b>${faktor >= 1.95 ? "rund " + zahl(faktor, faktor < 10 ? 1 : 0) + "-mal so viel" : "rund " + euro((kwh[teuer] - kwh[guenstig]) * p) + " mehr"}</b> ${faktor >= 1.95 ? "wie" : "als"} ${artikel(g[guenstig])} ${esc(g[guenstig].nm)}.`;
+        const u = new URL(location.href);
+        u.searchParams.set("a", g.a.s); u.searchParams.set("b", g.b.s);
+        history.replaceState(null, "", u);
+      },
+    };
+    vgForm.addEventListener("change", () => r.rechne());
+    r.rechne();
+    rechner.push(r);
+  }
+
+  // ------------------------------------------------ Lexikon-Filter
+  const lexSuche = $("[data-lex-suche]");
+  if (lexSuche) {
+    lexSuche.addEventListener("input", () => {
+      const q = normal(lexSuche.value.trim());
+      let n = 0;
+      $$(".lex-gruppe").forEach((gr) => {
+        let sichtbarIn = 0;
+        $$(".lex-eintrag", gr).forEach((ein) => {
+          const passt = !q || normal(ein.dataset.lex).includes(q);
+          ein.hidden = !passt;
+          if (passt) { sichtbarIn++; ein.classList.add("sichtbar"); }
+        });
+        gr.hidden = sichtbarIn === 0;
+        n += sichtbarIn;
+      });
+      $("[data-lex-leer]").hidden = n > 0;
+    });
+  }
+
+  // ------------------------------------------------ Spar-Check
+  const scEl = $("[data-spar-check]");
+  if (scEl) {
+    const fragen = $$(".sc-frage", scEl);
+    const anzahl = fragen.length;
+    const spiel = $(".sc-spiel", scEl), ergebnis = $("[data-sc-ergebnis]", scEl);
+    let antworten = lies("sparcheck", {}) || {};
+    let index = 0, summe = 0;
+    const pers = (a) => parseInt(a.personen, 10) || 2;
+    const MASSNAHMEN = [
+      { e: "🚿", t: "Sparduschkopf montieren", text: "Halbiert die Wassermenge beim Duschen – und damit den Strom für den Durchlauferhitzer.",
+        wenn: (a) => a.wasser === "strom", kwh: (a) => 200 * pers(a), q: "Sparduschkopf", link: "geraet/durchlauferhitzer/", lt: "Durchlauferhitzer" },
+      { e: "🛋️", t: "Heizdecke statt Heizlüfter", text: "Wärmt dich mit rund 60 statt 2.000 Watt – direkt am Sofa oder Schreibtisch.",
+        wenn: (a) => a.heizen !== "nie", kwh: (a) => (a.heizen === "oft" ? 530 : 260), q: "Heizdecke Abschaltautomatik", link: "geraet/heizluefter/", lt: "Heizlüfter-Rechner" },
+      { e: "💡", t: "Auf LED umstellen", text: "Eine LED braucht rund 85 % weniger Strom als eine Glühbirne und hält viel länger.",
+        wenn: (a) => a.licht !== "led", kwh: (a) => (a.licht === "alt" ? 450 : 200), q: "LED Lampe E27 warmweiß 806 lm", link: "geraet/gluehbirne/", lt: "Glühbirne vs. LED" },
+      { e: "🌀", t: "Wärmepumpentrockner statt Kondenstrockner", text: "Braucht für die gleiche Wäsche nur einen Bruchteil des Stroms.",
+        wenn: (a) => a.trockner === "kondens", kwh: (a) => (pers(a) <= 2 ? 250 : 380), q: "Wärmepumpentrockner", link: "werkzeuge/austausch/", lt: "Austausch-Rechner" },
+      { e: "🔌", t: "Standby konsequent abschalten", text: "Schaltbare Steckdosenleisten trennen Fernseher, Konsole und Co. komplett vom Netz.",
+        wenn: (a) => a.standby !== "wenig", kwh: (a) => (a.standby === "viel" ? 280 : 140), q: "Steckdosenleiste schaltbar", link: "werkzeuge/standby/", lt: "Standby-Rechner" },
+      { e: "🧊", t: "Alten Kühlschrank ersetzen", text: "Geräte über 15 Jahre verbrauchen oft doppelt so viel wie moderne.",
+        wenn: (a) => a.kuehl === "alt", kwh: () => 150, q: "Kühlschrank Energieeffizienzklasse A", link: "werkzeuge/austausch/", lt: "Lohnt sich das?" },
+      { e: "🧺", t: "Öfter an der Leine trocknen", text: "Jeder Trockengang an der Luft kostet 0 Cent.",
+        wenn: (a) => a.trockner !== "nein", kwh: (a) => (a.trockner === "kondens" ? 120 : 50) * (pers(a) <= 2 ? 1 : 1.5), q: "Wäscheständer platzsparend", link: "geraet/waermepumpentrockner/", lt: "Trockner-Rechner" },
+      { e: "🫧", t: "Mit 30 °C waschen", text: "Das Aufheizen macht den Großteil aus – 30 statt 60 °C spart mehr als die Hälfte pro Waschgang.",
+        wenn: (a) => a.waschen !== "30", kwh: (a) => (a.waschen === "60" ? 50 : 15) * pers(a), q: "", link: "geraet/waschmaschine/", lt: "Waschmaschinen-Rechner" },
+      { e: "🌡️", t: "Kühlschrank auf 7 °C stellen", text: "Jedes Grad kälter kostet rund 6 % mehr Strom.",
+        wenn: (a) => a.kuehl !== "alt", kwh: () => 20, q: "Kühlschrank Thermometer", link: "geraet/kuehlschrank/", lt: "Kühlschrank-Rechner" },
+      { e: "📶", t: "WLAN nachts abschalten", text: "Die meisten Router haben eine Nachtschaltung – einmal einstellen, für immer sparen.",
+        wenn: () => true, kwh: () => 25, q: "", link: "geraet/wlan-router/", lt: "Router-Rechner" },
+    ];
+
+    function zeigeFrage(i) {
+      index = i;
+      fragen.forEach((f, k) => { f.hidden = k !== i; });
+      $("[data-sc-schritt]", scEl).textContent = `Frage ${i + 1} von ${anzahl}`;
+      $("[data-sc-fortschritt]", scEl).style.width = (i / anzahl * 100) + "%";
+      $("[data-sc-zurueck]", scEl).hidden = i === 0;
+      const key = fragen[i].dataset.frage;
+      $$(".sc-option", fragen[i]).forEach((o) => o.classList.toggle("gewaehlt", antworten[key] === o.dataset.wert));
+    }
+    function zeigeErgebnis() {
+      spiel.hidden = true;
+      ergebnis.hidden = false;
+      const p = preis();
+      const liste = MASSNAHMEN.filter((m) => m.wenn(antworten)).map((m) => ({ ...m, wert: m.kwh(antworten) })).sort((x, y) => y.wert - x.wert);
+      const kwh = liste.reduce((s, m) => s + m.wert, 0);
+      summe = kwh * p;
+      zeigeZahl($("[data-sc-summe]", scEl), summe, (x) => "bis zu " + euro(x));
+      $("[data-sc-kwh]", scEl).textContent = zahl(kwh) + " kWh";
+      $("[data-sc-anzahl]", scEl).textContent = liste.length;
+      $("[data-sc-zehn]", scEl).textContent = euro(summe * 10);
+      const max = Math.max(1, ...liste.map((m) => m.wert));
+      const stern = SF.tag ? "*" : "";
+      $("[data-sc-massnahmen]", scEl).innerHTML = liste.map((m, i) => `<div class="massnahme" style="animation-delay:${i * 70}ms">
+        <span class="massnahme-emoji" aria-hidden="true">${m.e}</span><strong>${esc(m.t)}</strong>
+        <span class="massnahme-wert">${euro(m.wert * p)}<small>pro Jahr</small></span><p>${esc(m.text)}</p>
+        <span class="massnahme-balken"><i style="width:${m.wert / max * 100}%;animation-delay:${i * 70 + 200}ms"></i></span>
+        <span class="massnahme-aktionen"><a class="knopf knopf-tonal ripple" href="${ROOT}${m.link}">${esc(m.lt)}</a>
+        ${m.q ? `<a class="knopf knopf-text ripple" href="${esc(amazonLink(m.q))}" rel="${SF.tag ? "sponsored " : ""}nofollow noopener" target="_blank">Passendes Produkt${stern}</a>` : ""}</span></div>`).join("");
+      zaehle("spar-check-beendet", { summe: Math.round(summe) });
+    }
+    fragen.forEach((f, i) => $$(".sc-option", f).forEach((o) => o.addEventListener("click", () => {
+      antworten[f.dataset.frage] = o.dataset.wert;
+      schreib("sparcheck", antworten);
+      $$(".sc-option", f).forEach((x) => x.classList.toggle("gewaehlt", x === o));
+      vibriere(12);
+      setTimeout(() => {
+        if (i + 1 < anzahl) zeigeFrage(i + 1);
+        else { zeigeErgebnis(); vibriere([30, 40, 30]); scEl.scrollIntoView({ behavior: "smooth", block: "start" }); }
+      }, 240);
+    })));
+    $("[data-sc-zurueck]", scEl).addEventListener("click", () => { if (index > 0) zeigeFrage(index - 1); });
+    $("[data-sc-neu]", scEl).addEventListener("click", () => {
+      antworten = {}; loesche("sparcheck");
+      ergebnis.hidden = true; spiel.hidden = false;
+      zeigeFrage(0);
+      scEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    $("[data-sc-teilen]", scEl).addEventListener("click", () =>
+      teilen("Spar-Check", `🎯 Mein Strom-Spar-Check: bis zu ${euro(summe)} Sparpotenzial pro Jahr. Mach deinen eigenen:`));
+    const fertig = fragen.every((f) => antworten[f.dataset.frage]);
+    if (fertig) zeigeErgebnis(); else zeigeFrage(0);
+    rechner.push({ rechne() { if (!ergebnis.hidden) zeigeErgebnis(); } });
+  }
+
+  // ------------------------------------------------ Spotlight-Suche
+  const spot = $("[data-spotlight]");
+  if (spot) {
+    const eingabe = $("[data-spotlight-eingabe]", spot);
+    const liste = $("[data-spotlight-ergebnisse]", spot);
+    const REIHENFOLGE = ["Werkzeug", "Gerät", "Ratgeber", "Lexikon", "Seite"];
+    let treffer = [], aktiv = 0;
+    const alle = () => SF.geraete.map((g) => ({ t: g.n, u: `geraet/${g.s}/`, e: g.e, k: "Gerät", d: `${g.k} · ${euro(geraetKwh(g) * preis())} / Jahr` }))
+      .concat(SF.seiten || []);
+    function suche(q) {
+      const nq = normal(q.trim());
+      if (!nq) {
+        const beliebt = ["Spar-Check", "Zählerstand-Rechner", "Tarif-Vergleich", "Mein Haushalt"];
+        return beliebt.map((t) => (SF.seiten || []).find((x) => x.t === t)).filter(Boolean)
+          .concat(SF.geraete.filter((g) => ["kuehlschrank", "heizluefter", "spielkonsole"].includes(g.s))
+            .map((g) => ({ t: g.n, u: `geraet/${g.s}/`, e: g.e, k: "Gerät", d: g.k })));
+      }
+      return alle().map((x) => {
+        const t = normal(x.t);
+        const rang = t.startsWith(nq) ? 0 : t.split(/[\s(/-]+/).some((w) => w.startsWith(nq)) ? 1 : t.includes(nq) ? 2
+          : (x.d && normal(x.d).includes(nq) && x.k !== "Gerät") ? 3 : 9;
+        return { ...x, rang };
+      }).filter((x) => x.rang < 9).sort((a, b) => a.rang - b.rang || REIHENFOLGE.indexOf(a.k) - REIHENFOLGE.indexOf(b.k)).slice(0, 14)
+        // Top-Treffer zuerst, danach sauber nach Art gruppiert
+        .map((x, i, alle) => (i === 0 ? { ...x, top: true } : x))
+        .sort((a, b) => (b.top ? 1 : 0) - (a.top ? 1 : 0) || REIHENFOLGE.indexOf(a.k) - REIHENFOLGE.indexOf(b.k) || a.rang - b.rang);
+    }
+    function zeichne() {
+      treffer = suche(eingabe.value);
+      aktiv = 0;
+      if (!treffer.length) { liste.innerHTML = '<p class="spot-gruppe">Nichts gefunden – versuch ein anderes Wort.</p>'; return; }
+      let html = "", gruppe = "";
+      const titel = eingabe.value.trim() ? null : "Beliebt";
+      if (titel) html += `<p class="spot-gruppe">${titel}</p>`;
+      treffer.forEach((x, i) => {
+        if (!titel && x.top) { gruppe = "top"; html += '<p class="spot-gruppe">Top-Treffer</p>'; }
+        else if (!titel && x.k !== gruppe) { gruppe = x.k; html += `<p class="spot-gruppe">${({ Werkzeug: "Werkzeuge", "Gerät": "Geräte", Ratgeber: "Ratgeber", Lexikon: "Lexikon", Seite: "Seiten" })[gruppe] || esc(gruppe)}</p>`; }
+        html += `<a class="spot-treffer" role="option" href="${ROOT}${x.u}" data-i="${i}" aria-selected="${i === 0}">
+          <span class="emoji-kreis" aria-hidden="true">${x.e}</span><span><b>${esc(x.t)}</b>${x.d ? `<small>${esc(x.d)}</small>` : ""}</span><em>${esc(x.k)}</em></a>`;
+      });
+      liste.innerHTML = html;
+    }
+    const markiere = (i) => {
+      const el = $$(".spot-treffer", liste);
+      if (!el.length) return;
+      aktiv = (i + el.length) % el.length;
+      el.forEach((x, k) => x.setAttribute("aria-selected", String(k === aktiv)));
+      el[aktiv].scrollIntoView({ block: "nearest" });
+    };
+    const oeffnen = () => {
+      spot.hidden = false; body.style.overflow = "hidden";
+      eingabe.value = ""; zeichne();
+      setTimeout(() => eingabe.focus(), 30);
+    };
+    const schliessen = () => { spot.hidden = true; body.style.overflow = ""; };
+    $$("[data-spotlight-oeffnen]").forEach((a) => a.addEventListener("click", (ev) => { ev.preventDefault(); oeffnen(); }));
+    $("[data-spotlight-zu]", spot).addEventListener("click", schliessen);
+    spot.addEventListener("click", (ev) => { if (ev.target === spot) schliessen(); });
+    eingabe.addEventListener("input", zeichne);
+    eingabe.addEventListener("keydown", (ev) => {
+      if (ev.key === "ArrowDown") { ev.preventDefault(); markiere(aktiv + 1); }
+      else if (ev.key === "ArrowUp") { ev.preventDefault(); markiere(aktiv - 1); }
+      else if (ev.key === "Enter") { const el = $$(".spot-treffer", liste)[aktiv]; if (el) { ev.preventDefault(); location.href = el.href; } }
+    });
+    document.addEventListener("keydown", (ev) => {
+      const tippt = /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || "");
+      if ((ev.key === "k" && (ev.ctrlKey || ev.metaKey)) || (ev.key === "/" && !tippt)) { ev.preventDefault(); oeffnen(); }
+      else if (ev.key === "Escape" && !spot.hidden) schliessen();
+    });
   }
 
   // ------------------------------------------------ Geräteübersicht: Suche, Filter, Sortierung
@@ -731,7 +1040,8 @@
   const EINBLENDEN = ".seitenkopf, .werkzeug-karte, .kennzahlen, .rechner, .produkt, .hinweis-karte, .tipp-karte, .fakt-karte, "
     + ".kategorie-karte, .faq-eintrag, .geraet-karte, .rangliste, .quiz, .text-karte, .monate, .diagramm-karte, "
     + ".abschnitt > h2, .abschnitt > .overline, .abschnitt-kopf, .abschnitt > .unterzeile, "
-    + ".statement-zeile, .statement-unter, .artikel-karte, .artikel-abschnitt, .cta-karte, .kwh-raster > div, .label-skala";
+    + ".statement-zeile, .statement-unter, .artikel-karte, .artikel-abschnitt, .cta-karte, .kwh-raster > div, .label-skala, "
+    + ".sparcheck-promo, .lex-eintrag, .kosten-balken, .vg-raster";
   const ziele = $$(EINBLENDEN).filter((el) => !el.closest(".held, .story"));
   if ("IntersectionObserver" in window && !BEWEGUNG_AUS) {
     let gemeldet = false;

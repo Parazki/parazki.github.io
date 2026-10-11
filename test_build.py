@@ -89,7 +89,7 @@ class Bauen(unittest.TestCase):
 
     def test_sitemap_vollstaendig(self):
         xml = (self.ziel / "sitemap.xml").read_text(encoding="utf-8")
-        self.assertEqual(xml.count("<url>"), len(self.geraete) + 10 + len(build.ARTIKEL))
+        self.assertEqual(xml.count("<url>"), len(self.geraete) + 15 + len(build.ARTIKEL))
         self.assertNotIn("impressum", xml)
 
     def test_faq_jsonld_gueltig(self):
@@ -187,6 +187,35 @@ class Bauen(unittest.TestCase):
             self.assertIn(f'data-rechner="{typ}"', (self.ziel / pfad).read_text(encoding="utf-8"), pfad)
         self.assertIn("data-story", (self.ziel / "index.html").read_text(encoding="utf-8"))
         self.assertIn("data-story", (self.ziel / "balkonkraftwerk" / "index.html").read_text(encoding="utf-8"))
+
+    def test_runde3_seiten(self):
+        for pfad, merkmal in (("werkzeuge/spar-check/index.html", "data-spar-check"), ("werkzeuge/tarifvergleich/index.html", 'data-rechner="tarif"'),
+                              ("werkzeuge/e-auto/index.html", 'data-rechner="eauto"'), ("werkzeuge/vergleich/index.html", "data-vergleich"),
+                              ("wissen/lexikon/index.html", "DefinedTermSet")):
+            self.assertIn(merkmal, (self.ziel / pfad).read_text(encoding="utf-8"), pfad)
+        sc = (self.ziel / "werkzeuge" / "spar-check" / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(sc.count('class="sc-frage"'), len(build.SPAR_FRAGEN))
+
+    def test_lexikon_anker_eindeutig(self):
+        slugs = [build.lexikon_slug(b) for b, _ in build.LEXIKON]
+        self.assertEqual(len(slugs), len(set(slugs)))
+        text = (self.ziel / "wissen" / "lexikon" / "index.html").read_text(encoding="utf-8")
+        for slug in slugs:
+            self.assertIn(f'id="{slug}"', text)
+
+    def test_suchindex_ziele_existieren(self):
+        text = (self.ziel / "assets" / "daten.js").read_text(encoding="utf-8")
+        daten = json.loads(text.removeprefix("window.SF=").strip().rstrip(";"))
+        self.assertGreater(len(daten["seiten"]), 40)
+        for eintrag in daten["seiten"]:
+            pfad = eintrag["u"].split("#")[0]
+            self.assertTrue((self.ziel / pfad / "index.html").exists(), eintrag["u"])
+
+    def test_spotlight_in_jeder_seite(self):
+        for pfad in ("index.html", "geraet/kuehlschrank/index.html", "wissen/lexikon/index.html"):
+            text = (self.ziel / pfad).read_text(encoding="utf-8")
+            self.assertIn("data-spotlight-oeffnen", text)
+            self.assertIn("data-spotlight-eingabe", text)
 
     def test_kein_html_injection_aus_daten(self):
         for g in self.geraete:
