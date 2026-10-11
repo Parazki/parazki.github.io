@@ -901,7 +901,7 @@
       const anteil = gesamtKwh / schnitt * 100;
       $("[data-hh-balken]", hhEl).style.width = Math.min(100, anteil) + "%";
       hh("vergleich").textContent = l.length
-        ? `Deine erfassten Geräte: ${zahl(anteil)} % des typischen Verbrauchs eines ${personen === 5 ? "5+" : personen}-Personen-Haushalts (ca. ${zahl(schnitt)} kWh im Jahr).`
+        ? `Deine erfassten Geräte: ${zahl(anteil)} % des typischen Verbrauchs ${personen === 5 ? "eines Haushalts mit 5 oder mehr Personen" : "eines " + personen + "-Personen-Haushalts"} (ca. ${zahl(schnitt)} kWh im Jahr).`
         : "Füge Geräte hinzu, um dich mit einem Durchschnittshaushalt zu vergleichen.";
 
       const leerEl = $("[data-hh-leer]", hhEl);
@@ -1154,4 +1154,5 @@
   }
 
   aktualisiereAlles();
+  document.documentElement.dataset.appBereit = "1"; // Gesundheits-Marker: Skript komplett durchgelaufen
 })();

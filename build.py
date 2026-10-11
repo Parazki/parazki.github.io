@@ -66,6 +66,22 @@ def euro(x):
     return zahl(x, 2) + " €" if x < 100 else zahl(x, 0) + " €"
 
 
+def zahl_kurz(x, max_stellen=3):
+    """Zahl ohne überflüssige Nullen: 21 statt 21,000 und 0,018 statt 0,0180."""
+    stellen = next((s for s in range(max_stellen + 1) if abs(round(x, s) - x) < 1e-9), max_stellen)
+    return zahl(x, stellen)
+
+
+def geld(eur):
+    """Kleine Beträge in Cent, große in Euro: 0,04 Cent, 6,3 Cent, 7,35 €."""
+    cent = eur * 100
+    if cent < 1:
+        return zahl(cent, 2) + " Cent"
+    if cent < 100:
+        return zahl(cent, 1) + " Cent"
+    return euro(eur)
+
+
 def dauer(stunden):
     if stunden < 1:
         return f"{round(stunden * 60)} min"
@@ -617,10 +633,10 @@ def geraeteseite(ctx, g, geraete):
         (f"Was kostet {voll} im Monat?",
          f"Bei einem Strompreis von {preis_txt} €/kWh rund {euro(kosten / 12)} pro Monat bzw. {euro(kosten)} pro Jahr.{standby_satz}"),
         (f"Wie viel Strom verbraucht {voll} pro Stunde?",
-         f"Im Betrieb etwa {zahl(g['leistung_w'], 0 if float(g['leistung_w']).is_integer() else 1)} Watt, also {zahl(g['leistung_w'] / 1000, 3)} kWh pro Stunde – "
-         f"das kostet bei {preis_txt} €/kWh rund {zahl(g['leistung_w'] / 1000 * preis * 100, 1)} Cent pro Betriebsstunde."),
+         f"{'Im Durchschnitt' if g['stunden'] >= 24 else 'Im Betrieb'} etwa {zahl_kurz(g['leistung_w'], 1)} Watt, also {zahl_kurz(g['leistung_w'] / 1000)} kWh pro Stunde – "
+         f"das kostet bei {preis_txt} €/kWh rund {geld(g['leistung_w'] / 1000 * preis)} pro {'Stunde' if g['stunden'] >= 24 else 'Betriebsstunde'}."),
         (f"Was kostet {voll} pro Tag?",
-         f"Im Jahresdurchschnitt rund {zahl(kosten / 365 * 100, 1)} Cent pro Tag bei typischer Nutzung ({zahl(kwh / 365, 2)} kWh)."),
+         f"Im Jahresdurchschnitt rund {geld(kosten / 365)} pro Tag bei typischer Nutzung ({zahl_kurz(kwh / 365, 2)} kWh)."),
         (f"{gross(name)}: Wie kann ich Strom sparen?", g["tipp"]),
     ]
     p = g["produkt"]

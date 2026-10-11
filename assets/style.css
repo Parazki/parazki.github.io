@@ -889,3 +889,124 @@ p { margin: 0 0 .75rem; }
 .feld-paar .feld-rahmen input { padding: 0 6px 0 12px; }
 .feld-paar .feld-rahmen em { padding: 0 10px 0 0; font-size: .8125rem; }
 @media (max-width: 420px) { .feld-paar .feld-rahmen input { font-size: 1rem; } }
+
+/* ================================================ Liquid Glass (Apple-Stil): durchscheinende Glasflächen */
+:root {
+  --glas: color-mix(in srgb, var(--surface-lowest) 56%, transparent);
+  --glas-stark: color-mix(in srgb, var(--surface-lowest) 72%, transparent);
+  --glas-glanz: linear-gradient(150deg, rgba(255, 255, 255, .55) 0%, rgba(255, 255, 255, .12) 38%, rgba(255, 255, 255, 0) 62%);
+  --glas-schatten: inset 0 1px 0 rgba(255, 255, 255, .75), inset 0 0 0 1px rgba(255, 255, 255, .35), 0 12px 32px -14px rgba(16, 48, 36, .22);
+  --glas-unschaerfe: blur(20px) saturate(1.7);
+  --glas-unschaerfe-stark: blur(30px) saturate(1.9);
+  --held-glas: linear-gradient(135deg, rgba(178, 240, 209, .62) 0%, rgba(222, 243, 196, .5) 55%, rgba(255, 233, 186, .62) 100%);
+  --hg-1: rgba(108, 219, 172, .42); --hg-2: rgba(255, 201, 74, .30); --hg-3: rgba(120, 170, 255, .26);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --glas: color-mix(in srgb, var(--surface-high) 52%, transparent);
+    --glas-stark: color-mix(in srgb, var(--surface-high) 70%, transparent);
+    --glas-glanz: linear-gradient(150deg, rgba(255, 255, 255, .14) 0%, rgba(255, 255, 255, .03) 40%, rgba(255, 255, 255, 0) 62%);
+    --glas-schatten: inset 0 1px 0 rgba(255, 255, 255, .14), inset 0 0 0 1px rgba(255, 255, 255, .07), 0 14px 36px -14px rgba(0, 0, 0, .7);
+    --held-glas: linear-gradient(135deg, rgba(13, 70, 50, .55) 0%, rgba(32, 58, 38, .45) 55%, rgba(70, 58, 20, .5) 100%);
+    --hg-1: rgba(0, 120, 84, .40); --hg-2: rgba(160, 110, 0, .24); --hg-3: rgba(40, 80, 160, .28);
+  }
+}
+
+/* Fließender Farbhintergrund, der durch das Glas scheint */
+body::before {
+  content: ""; position: fixed; inset: -25vmax; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(38vmax 38vmax at 18% 22%, var(--hg-1), transparent 70%),
+    radial-gradient(32vmax 32vmax at 82% 30%, var(--hg-2), transparent 70%),
+    radial-gradient(42vmax 42vmax at 55% 88%, var(--hg-3), transparent 70%);
+  animation: hintergrund 34s ease-in-out infinite alternate;
+}
+@keyframes hintergrund {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(-4vmax, 3vmax) rotate(8deg); }
+  100% { transform: translate(3vmax, -3vmax) rotate(-6deg); }
+}
+
+/* Glas-Bausteine */
+:is(.rechner, .story, .sc-spiel, .quiz, .rangliste, .kennzahlen, .diagramm-karte, .karte-flach, .text-karte,
+    .faq-eintrag, .hinweis-karte, .produkt, .artikel-karte, .fakt-karte, .vg-spalte, .kategorie-karte, .mehr, .massnahme) {
+  background-color: var(--glas); background-image: var(--glas-glanz);
+  border-color: transparent; box-shadow: var(--glas-schatten);
+  -webkit-backdrop-filter: var(--glas-unschaerfe); backdrop-filter: var(--glas-unschaerfe);
+}
+/* Viele kleine Listeneinträge: durchscheinend, aber ohne teure Unschärfe */
+:is(.geraet-karte, .hh-eintrag, .standby-zeile, .lex-eintrag, .chip, .vorschlag, .sc-option, .beispiel-liste li, .haken-liste li, .kwh-raster div) {
+  background-color: var(--glas-stark); background-image: var(--glas-glanz);
+  border-color: transparent; box-shadow: var(--glas-schatten);
+}
+.rangliste .rang-zeile { background: transparent; }
+.rangliste .rang-zeile:hover { background: color-mix(in srgb, var(--surface-lowest) 40%, transparent); }
+.rang-zeile.aktiv { background: color-mix(in srgb, var(--secondary-container) 80%, transparent) !important; }
+
+/* Getönte Glasflächen */
+.ergebnis-held { background-color: color-mix(in srgb, var(--primary-container) 80%, transparent); background-image: var(--glas-glanz); box-shadow: var(--glas-schatten); -webkit-backdrop-filter: var(--glas-unschaerfe); backdrop-filter: var(--glas-unschaerfe); }
+.ergebnis-solar { background-color: color-mix(in srgb, var(--tertiary-container) 80%, transparent); }
+.ergebnis-held.nachzahlung { background-color: color-mix(in srgb, var(--error-container) 82%, transparent); }
+.ergebnis-held.guthaben { background-color: color-mix(in srgb, var(--primary-container) 80%, transparent); }
+.tipp-karte { background-color: color-mix(in srgb, var(--tertiary-container) 78%, transparent); background-image: var(--glas-glanz); box-shadow: var(--glas-schatten); -webkit-backdrop-filter: var(--glas-unschaerfe); backdrop-filter: var(--glas-unschaerfe); }
+.werkzeug-karte { background-color: var(--glas); background-image: var(--glas-glanz); box-shadow: var(--glas-schatten); -webkit-backdrop-filter: var(--glas-unschaerfe); backdrop-filter: var(--glas-unschaerfe); }
+.wk-primaer { background-color: color-mix(in srgb, var(--primary-container) 74%, transparent); }
+.wk-sekundaer { background-color: color-mix(in srgb, var(--secondary-container) 74%, transparent); }
+.wk-tertiaer { background-color: color-mix(in srgb, var(--tertiary-container) 74%, transparent); }
+.install-karte { background-color: color-mix(in srgb, var(--primary-container) 78%, transparent); background-image: var(--glas-glanz); box-shadow: var(--glas-schatten); -webkit-backdrop-filter: var(--glas-unschaerfe); backdrop-filter: var(--glas-unschaerfe); }
+.held { background-image: var(--glas-glanz), var(--held-glas); box-shadow: var(--glas-schatten); -webkit-backdrop-filter: var(--glas-unschaerfe-stark); backdrop-filter: var(--glas-unschaerfe-stark); }
+.held .suchleiste { background-color: var(--glas-stark); background-image: var(--glas-glanz); box-shadow: var(--glas-schatten), 0 6px 20px -8px rgba(0, 0, 0, .18); }
+.suchleiste { background-color: var(--glas-stark); box-shadow: var(--glas-schatten); }
+.sparcheck-promo { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 16px 36px -14px rgba(0, 108, 76, .6); }
+.sparcheck-promo::before { content: ""; position: absolute; inset: 0; background: var(--glas-glanz); opacity: .6; pointer-events: none; }
+
+/* App-Leiste oben: immer Glas */
+.appbar, .appbar.gescrollt {
+  background-color: color-mix(in srgb, var(--surface) 62%, transparent); background-image: none;
+  -webkit-backdrop-filter: var(--glas-unschaerfe-stark); backdrop-filter: var(--glas-unschaerfe-stark);
+}
+.appbar.gescrollt { box-shadow: 0 1px 0 color-mix(in srgb, var(--outline-variant) 55%, transparent), 0 8px 24px -16px rgba(0, 0, 0, .25); }
+
+/* Navigationsleiste als schwebende Glas-Pille (wie iOS 26) */
+body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+.navbar {
+  left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); height: 68px; padding: 8px 6px;
+  border-radius: 30px; background-color: var(--glas-stark); background-image: var(--glas-glanz); box-shadow: var(--glas-schatten), 0 18px 40px -16px rgba(0, 0, 0, .35);
+  -webkit-backdrop-filter: var(--glas-unschaerfe-stark); backdrop-filter: var(--glas-unschaerfe-stark);
+}
+.nav-item { justify-content: center; }
+.nav-pille { width: 56px; height: 30px; }
+.nav-item[aria-current="page"] .nav-pille { background: color-mix(in srgb, var(--secondary-container) 85%, transparent); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5); }
+.fab { bottom: calc(96px + env(safe-area-inset-bottom)); background-color: color-mix(in srgb, var(--primary-container) 82%, transparent); background-image: var(--glas-glanz); -webkit-backdrop-filter: var(--glas-unschaerfe); backdrop-filter: var(--glas-unschaerfe); box-shadow: var(--glas-schatten), 0 14px 30px -12px rgba(0, 0, 0, .35); }
+.snackbar { bottom: calc(96px + env(safe-area-inset-bottom)); border-radius: 18px; background-color: color-mix(in srgb, var(--inverse-surface) 84%, transparent); -webkit-backdrop-filter: var(--glas-unschaerfe); backdrop-filter: var(--glas-unschaerfe); }
+@media (min-width: 900px) {
+  body { padding-bottom: 0; }
+  .navbar { top: 76px; bottom: 12px; left: 12px; right: auto; width: 76px; height: auto; padding: 16px 0; border-radius: 30px; gap: 10px; }
+  .fab { bottom: 24px; }
+  .snackbar { bottom: 24px; }
+}
+
+/* Dialoge & Suche */
+.dialog { background-color: color-mix(in srgb, var(--surface-high) 76%, transparent); background-image: var(--glas-glanz); box-shadow: var(--glas-schatten), 0 30px 60px -20px rgba(0, 0, 0, .45); -webkit-backdrop-filter: var(--glas-unschaerfe-stark); backdrop-filter: var(--glas-unschaerfe-stark); }
+.dialog::backdrop { background: rgba(0, 0, 0, .22); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.dialog .feld-rahmen { background: var(--glas-stark); }
+.spotlight-panel { background-color: color-mix(in srgb, var(--surface-low) 74%, transparent); background-image: var(--glas-glanz); box-shadow: var(--glas-schatten), 0 30px 70px -20px rgba(0, 0, 0, .5); -webkit-backdrop-filter: var(--glas-unschaerfe-stark); backdrop-filter: var(--glas-unschaerfe-stark); }
+.feld-rahmen { background-color: var(--glas-stark); }
+
+/* Ohne Glas-Unterstützung oder bei „Transparenz reduzieren“: klare, undurchsichtige Flächen */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root { --glas: var(--surface-low); --glas-stark: var(--surface-lowest); }
+  .appbar, .appbar.gescrollt, .navbar { background-color: var(--surface-container); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glas: var(--surface-low); --glas-stark: var(--surface-lowest); --glas-glanz: none; }
+  .appbar, .appbar.gescrollt, .navbar, .spotlight-panel, .dialog { background-color: var(--surface-container); }
+  body::before { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { body::before { animation: none; } }
+/* Spar-Check: Maßnahmen-Karten nie breiter als der Bildschirm */
+.massnahme { grid-template-columns: auto minmax(0, 1fr) auto; }
+.massnahme-aktionen .knopf { white-space: normal; height: auto; min-height: 36px; padding: 8px 16px; text-align: center; line-height: 1.25; }
+.sc-ergebnis, .spar-check { min-width: 0; }
+/* Hereingleitende Animationen dürfen nie seitliches Scrollen auslösen */
+.inhalt { overflow-x: clip; }
