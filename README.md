@@ -1,6 +1,7 @@
 # Stromfresser-Check – automatische Nebeneinkommens-Website
 
-Eine fertige Website mit **Stromkosten-Rechnern für 32 Haushaltsgeräte** und einem **Balkonkraftwerk-Rechner**.
+Eine Website im **Android-/Material-You-Stil** mit **Stromkosten-Rechnern für 52 Haushaltsgeräte**, **„Mein Haushalt“-Check**, **Stromfresser-Quiz** und **Balkonkraftwerk-Rechner**.
+Sie lässt sich auf dem Handy **als App installieren** und funktioniert offline (PWA).
 Sie verdient Geld über **Amazon-Partnerlinks** (z. B. Strommessgerät, LED-Lampen, Sparduschkopf) und optional später über Werbung.
 
 | Anforderung | Erfüllt? |
@@ -59,10 +60,11 @@ Optional später: **Google AdSense** (`adsense_client_id`), sobald die Seite Bes
 
 ```
 config.json          Name, Strompreis, Partner-Tag, Impressum
-data/geraete.json    Gerätedaten – jede Zeile = eine Seite
-build.py             erzeugt dist/ (nur Python-Standardbibliothek)
+data/geraete.json    Gerätedaten – jede Zeile = eine Seite (mit Emoji)
+build.py             erzeugt dist/ inkl. manifest.webmanifest, sw.js, assets/daten.js
 test_build.py        Tests:  python test_build.py
-assets/              CSS, Rechner-JavaScript, Icon
+assets/              Material-You-CSS, App-JavaScript, Icons
+tools/icons.py       erzeugt die App-Icons (PNG) neu
 .github/workflows/   automatischer Bau + Veröffentlichung + monatlicher Neubau
 ```
 

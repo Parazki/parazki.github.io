@@ -75,18 +75,21 @@ class Bauen(unittest.TestCase):
             datei = self.ziel / "geraet" / g["slug"] / "index.html"
             self.assertTrue(datei.exists(), g["slug"])
             text = datei.read_text(encoding="utf-8")
-            self.assertIn("<h1>Wie viel Strom verbraucht", text)
+            self.assertIn("Wie viel Strom verbraucht", text)
+            self.assertIn("data-zum-haushalt", text)
             self.assertIn('data-rechner="geraet"', text)
 
     def test_grundseiten(self):
-        for pfad in ("index.html", "balkonkraftwerk/index.html", "impressum/index.html",
+        for pfad in ("index.html", "geraete/index.html", "haushalt/index.html", "quiz/index.html",
+                     "balkonkraftwerk/index.html", "impressum/index.html",
                      "datenschutz/index.html", "404.html", "sitemap.xml", "robots.txt",
+                     "manifest.webmanifest", "sw.js", "assets/daten.js",
                      "assets/app.js", "assets/style.css", ".nojekyll"):
             self.assertTrue((self.ziel / pfad).exists(), pfad)
 
     def test_sitemap_vollstaendig(self):
         xml = (self.ziel / "sitemap.xml").read_text(encoding="utf-8")
-        self.assertEqual(xml.count("<url>"), len(self.geraete) + 2)
+        self.assertEqual(xml.count("<url>"), len(self.geraete) + 5)
         self.assertNotIn("impressum", xml)
 
     def test_faq_jsonld_gueltig(self):
@@ -98,9 +101,59 @@ class Bauen(unittest.TestCase):
 
     def test_relative_links_funktionieren(self):
         text = (self.ziel / "geraet" / "kuehlschrank" / "index.html").read_text(encoding="utf-8")
-        self.assertIn('href="../../assets/style.css"', text)
+        self.assertIn('href="../../assets/style.css?v=', text)
         for ziel in re.findall(r'href="(\.\./\.\./geraet/[^"]+)"', text):
             self.assertTrue((self.ziel / "geraet" / "kuehlschrank" / ziel / "index.html").resolve().exists(), ziel)
+
+    def test_navigation_markiert_aktive_seite(self):
+        for pfad, ziel in (("index.html", "./"), ("quiz/index.html", "../quiz/"), ("geraet/kuehlschrank/index.html", "../../geraete/")):
+            text = (self.ziel / pfad).read_text(encoding="utf-8")
+            self.assertIn(f'href="{ziel}" aria-current="page"', text, pfad)
+            self.assertEqual(text.count('aria-current="page"'), 1, pfad)
+
+    def test_manifest_installierbar(self):
+        m = json.loads((self.ziel / "manifest.webmanifest").read_text(encoding="utf-8"))
+        self.assertEqual(m["display"], "standalone")
+        self.assertEqual(m["start_url"], "./")
+        groessen = {i["sizes"] for i in m["icons"]}
+        self.assertTrue({"192x192", "512x512"} <= groessen)
+        self.assertTrue(any(i["purpose"] == "maskable" for i in m["icons"]))
+        for i in m["icons"] + [s["icons"][0] for s in m["shortcuts"]]:
+            self.assertTrue((self.ziel / i["src"]).exists(), i["src"])
+        for s in m["shortcuts"]:
+            self.assertTrue((self.ziel / s["url"] / "index.html").exists(), s["url"])
+
+    def test_icons_sind_png(self):
+        for name in ("icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png"):
+            self.assertEqual((self.ziel / "assets" / name).read_bytes()[:8], b"\x89PNG\r\n\x1a\n", name)
+
+    def test_service_worker_vorab_dateien_existieren(self):
+        sw = (self.ziel / "sw.js").read_text(encoding="utf-8")
+        vorab = json.loads(re.search(r"const VORAB = (\[.*?\]);", sw).group(1))
+        for pfad in vorab:
+            datei = self.ziel / pfad.split("?")[0]
+            if pfad.endswith("/") or pfad == "./":
+                datei = datei / "index.html"
+            self.assertTrue(datei.exists(), pfad)
+        version = re.search(r'const VERSION = "sf-(\w+)"', sw).group(1)
+        index = (self.ziel / "index.html").read_text(encoding="utf-8")
+        self.assertIn(f"assets/app.js?v={version}", index)
+
+    def test_daten_js_vollstaendig(self):
+        text = (self.ziel / "assets" / "daten.js").read_text(encoding="utf-8")
+        daten = json.loads(text.removeprefix("window.SF=").strip().rstrip(";"))
+        self.assertEqual(len(daten["geraete"]), len(self.geraete))
+        slugs = {g["s"] for g in daten["geraete"]}
+        for slug, _ in daten["vorlage"]:
+            self.assertIn(slug, slugs)
+        self.assertAlmostEqual(sum(daten["solar"]), 100)
+        self.assertEqual(set(daten["schnitt"]), {"1", "2", "3", "4", "5"})
+
+    def test_balkonkraftwerk_startwerte(self):
+        ertrag, ersparnis, amort = build.bkw_rechnung()
+        self.assertAlmostEqual(ertrag, 855)
+        self.assertAlmostEqual(ersparnis, 855 * 0.4 * 0.35)
+        self.assertAlmostEqual(amort, 400 / ersparnis)
 
     def test_kein_html_injection_aus_daten(self):
         for g in self.geraete:
