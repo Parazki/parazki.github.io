@@ -29,6 +29,14 @@
   const preis = () => { const p = parseFloat(lies("preis", NaN)); return p > 0 && p < 5 ? p : STANDARD_PREIS; };
   const normal = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ß/g, "ss");
   const vibriere = (muster) => { try { if (navigator.vibrate) navigator.vibrate(muster); } catch (e) { /* egal */ } };
+  // Besucherstatistik (Umami, ohne Cookies) – nur aktiv, wenn in config.json eine Website-ID steht
+  const zaehle = (name, daten) => { try { if (window.umami && window.umami.track) window.umami.track(name, daten); } catch (e) { /* egal */ } };
+  document.addEventListener("click", (ev) => {
+    const link = ev.target.closest('a[href*="amazon.de"]');
+    if (!link) return;
+    const karte = link.closest(".produkt");
+    zaehle("amazon-klick", { produkt: karte ? $("h3", karte).textContent : link.textContent, seite: location.pathname });
+  });
 
   // Sanfter Zahlenwechsel für große Ergebniswerte
   function zeigeZahl(el, wert, format) {
@@ -108,6 +116,7 @@
   if (dialog) dialog.addEventListener("close", () => {
     if (dialog.returnValue === "ok") {
       setzePreis(parseFloat(String(dialog.querySelector("input").value).replace(",", ".")));
+      zaehle("strompreis-geaendert");
       snackbar(`Strompreis: ${zahl(preis(), 2)} €/kWh – alle Kosten aktualisiert`);
     } else if (dialog.returnValue === "standard") {
       setzePreis(NaN);
@@ -161,6 +170,7 @@
 
   async function teilen(titel, text) {
     const url = location.href.split("#")[0];
+    zaehle("teilen", { seite: location.pathname });
     try {
       if (navigator.share) { await navigator.share({ title: titel, text, url }); return; }
       await navigator.clipboard.writeText(text + " " + url);
@@ -223,6 +233,7 @@
       if (eintrag) { Object.assign(eintrag, v); eintrag.m += 1; } else liste.push({ s: g.s, ...v, m: 1 });
       schreib("haushalt", liste);
       vibriere(20);
+      zaehle("haushalt-hinzugefuegt", { geraet: g.s, quelle: "geraeteseite" });
       snackbar(`${g.n} zu deinem Haushalt hinzugefügt${eintrag ? ` (jetzt ${eintrag.m} ×)` : ""}`, { text: "Ansehen", href: ROOT + "haushalt/" });
     });
   });
@@ -322,6 +333,7 @@
       if (vorhanden) vorhanden.m += 1; else l.push(ausGeraet(nachSlug[slug]));
       speichern(l);
       vibriere(15);
+      zaehle("haushalt-hinzugefuegt", { geraet: slug, quelle: "haushalt" });
       suche.value = "";
       vorschlaege.innerHTML = "";
       render();
@@ -358,6 +370,7 @@
       });
       speichern(l);
       render();
+      zaehle("haushalt-vorlage");
       snackbar(neu ? `${neu} typische Geräte hinzugefügt – passe die Anzahl an` : "Die typischen Geräte sind schon in deiner Liste");
     });
     const leeren = $("[data-hh-leeren]", hhEl);
@@ -524,6 +537,7 @@
         : punkte >= 5 ? "Nicht schlecht! Ein paar Überraschungen waren dabei."
         : "Stromkosten sind tückisch – genau deshalb lohnt sich der Check.";
       q("rekord").textContent = `Dein Rekord: ${rekord} von ${RUNDEN}`;
+      zaehle("quiz-beendet", { punkte });
       vibriere([40, 60, 40]);
     }
     function neuesSpiel() {
@@ -559,6 +573,7 @@
     installElemente().forEach((el) => { el.hidden = true; });
   }));
   addEventListener("appinstalled", () => {
+    zaehle("app-installiert");
     installElemente().forEach((el) => { el.hidden = true; });
     snackbar("Installiert! Du findest den Stromfresser-Check jetzt auf deinem Startbildschirm.");
   });

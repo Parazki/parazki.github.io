@@ -249,6 +249,9 @@ def layout(seite, titel, beschreibung, inhalt, aktiv="", extra_head="", index=Tr
     meta = []
     if ctx["verification"]:
         meta.append(f'<meta name="google-site-verification" content="{e(ctx["verification"])}">')
+    if ctx["umami_id"]:
+        domain = ctx["base"].split("://", 1)[-1].split("/", 1)[0]
+        meta.append(f'<script defer src="{e(ctx["umami_script"])}" data-website-id="{e(ctx["umami_id"])}" data-domains="{e(domain)}"></script>')
     if ctx["adsense"]:
         meta.append(f'<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={e(ctx["adsense"])}" crossorigin="anonymous"></script>')
     if not index:
@@ -799,6 +802,10 @@ def impressum_seite(ctx):
 def datenschutz_seite(ctx):
     s = Seite(ctx, "datenschutz/")
     imp = ctx["impressum"]
+    statistik = ""
+    if ctx["umami_id"]:
+        statistik = """<h2>Besucherstatistik (Umami)</h2>
+<p>Um zu verstehen, welche Seiten und Funktionen hilfreich sind, nutzt diese Website den Statistikdienst Umami Cloud (umami.is). Umami setzt keine Cookies, speichert nichts auf deinem Gerät und erstellt keine Nutzerprofile. Erfasst werden zusammengefasst und ohne Personenbezug: aufgerufene Seite, Verweildauer, verweisende Website, Gerätetyp, Browser, Betriebssystem, Land sowie Aktionen wie „Quiz beendet“ oder „Amazon-Link angeklickt“. Deine IP-Adresse wird nicht gespeichert. Rechtsgrundlage ist unser berechtigtes Interesse an einer nutzerfreundlichen Website (Art. 6 Abs. 1 lit. f DSGVO).</p>"""
     werbung = ""
     if ctx["adsense"]:
         werbung = """<h2>Google AdSense</h2>
@@ -812,6 +819,7 @@ def datenschutz_seite(ctx):
 <p>Diese Website wird bei GitHub Pages gehostet (GitHub Inc., 88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, USA). Beim Aufruf der Seiten verarbeitet GitHub technisch notwendige Daten wie deine IP-Adresse, um die Seite auszuliefern und die Sicherheit zu gewährleisten (berechtigtes Interesse, Art. 6 Abs. 1 lit. f DSGVO). Details: <a href="https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement" rel="nofollow noopener">Datenschutzerklärung von GitHub</a>.</p>
 <h2>Rechner, Haushalts-Check und Quiz</h2>
 <p>Alle Berechnungen laufen ausschließlich in deinem Browser. Deinen Strompreis, deine Haushaltsliste und deinen Quiz-Rekord speichert die Seite nur lokal in deinem Browser (Local Storage), damit sie beim nächsten Besuch noch da sind. Diese Daten werden nicht übertragen und du kannst sie jederzeit über die Browsereinstellungen löschen. Diese Website setzt selbst keine Cookies.</p>
+{statistik}
 <h2>Offline-Nutzung</h2>
 <p>Damit die Seite als App installiert und offline genutzt werden kann, speichert ein sogenannter Service Worker Seiten und Dateien dieser Website im Zwischenspeicher deines Browsers. Dabei werden keine personenbezogenen Daten erhoben.</p>
 <h2>Amazon-Partnerprogramm</h2>
@@ -941,8 +949,8 @@ def lade_geraete():
     return geraete
 
 
-def baue(ziel, strict=False, heute=None):
-    cfg = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
+def baue(ziel, strict=False, heute=None, cfg=None):
+    cfg = cfg if cfg is not None else json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
     fehlend = fehlende_pflichtangaben(cfg)
     if strict and fehlend:
         raise SystemExit(
@@ -965,6 +973,8 @@ def baue(ziel, strict=False, heute=None):
         "tag": (cfg.get("amazon_partner_tag") or "").strip(),
         "verification": (cfg.get("google_site_verification") or "").strip(),
         "adsense": (cfg.get("adsense_client_id") or "").strip(),
+        "umami_id": (cfg.get("umami_website_id") or "").strip(),
+        "umami_script": (cfg.get("umami_script") or "https://cloud.umami.is/script.js").strip(),
         "impressum": cfg.get("impressum", {}),
         "fehlend": fehlend,
         "jahr": heute.year,

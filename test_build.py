@@ -155,6 +155,20 @@ class Bauen(unittest.TestCase):
         self.assertAlmostEqual(ersparnis, 855 * 0.4 * 0.35)
         self.assertAlmostEqual(amort, 400 / ersparnis)
 
+    def test_statistik_nur_mit_website_id(self):
+        cfg = json.loads((build.ROOT / "config.json").read_text(encoding="utf-8"))
+        ohne = dict(cfg, umami_website_id="")
+        mit = dict(cfg, umami_website_id="1234-abcd")
+        ziel_ohne, ziel_mit = Path(self.tmp.name) / "ohne", Path(self.tmp.name) / "mit"
+        build.baue(ziel_ohne, cfg=ohne, heute=datetime.date(2026, 10, 11))
+        build.baue(ziel_mit, cfg=mit, heute=datetime.date(2026, 10, 11))
+        self.assertNotIn("umami", (ziel_ohne / "index.html").read_text(encoding="utf-8"))
+        self.assertNotIn("Umami", (ziel_ohne / "datenschutz" / "index.html").read_text(encoding="utf-8"))
+        index = (ziel_mit / "index.html").read_text(encoding="utf-8")
+        self.assertIn('data-website-id="1234-abcd"', index)
+        self.assertIn('data-domains="localhost:8000"', index)
+        self.assertIn("Besucherstatistik (Umami)", (ziel_mit / "datenschutz" / "index.html").read_text(encoding="utf-8"))
+
     def test_kein_html_injection_aus_daten(self):
         for g in self.geraete:
             for feld in ("name", "hinweis", "tipp"):
