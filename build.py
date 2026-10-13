@@ -144,6 +144,7 @@ ICONS = {
     "book": '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v14H6.5A1.5 1.5 0 0 0 5 18.5zM5 18.5A1.5 1.5 0 0 0 6.5 20H19v-3"/><path d="M9 7h6"/>',
     "wrench": '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.1-.4-.4-2.1z"/>',
     "clock": '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    "person": '<circle cx="12" cy="8" r="4"/><path d="M4 20.5c1.4-3.6 4.4-5.5 8-5.5s6.6 1.9 8 5.5"/>',
 }
 SPRITE = ('<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>'
           + "".join(f'<symbol id="i-{k}" viewBox="0 0 24 24">{v}</symbol>' for k, v in ICONS.items())
@@ -337,7 +338,7 @@ def layout(seite, titel, beschreibung, inhalt, aktiv="", extra_head="", index=Tr
     {kopf_aktion}
     <button class="icon-knopf ripple" type="button" data-installieren hidden aria-label="Als App installieren" title="Als App installieren">{icon('download')}</button>
     <a class="icon-knopf ripple" href="{w}geraete/#suche" data-spotlight-oeffnen aria-label="Suchen" title="Suchen (Strg + K)">{icon('search')}</a>
-    <button class="icon-knopf ripple" type="button" data-preis-oeffnen aria-label="Strompreis einstellen" title="Strompreis einstellen">{icon('tune')}</button>
+    <button class="icon-knopf profil-knopf ripple" type="button" data-profil-oeffnen aria-label="Mein Profil und Strompreis" title="Mein Profil und Strompreis">{icon('person')}<span class="avatar" data-avatar hidden></span></button>
   </div>
 </header>
 <nav class="navbar" aria-label="Hauptnavigation">{nav}</nav>
@@ -356,14 +357,24 @@ def layout(seite, titel, beschreibung, inhalt, aktiv="", extra_head="", index=Tr
     <p>Alle Werte sind typische Durchschnittswerte und ersetzen keine Messung. Stand: {e(ctx['stand'])}.</p>
   </div>
 </footer>
-<dialog class="dialog" id="preis-dialog">
-  <form method="dialog">
-    <h2>{icon('tune')} Dein Strompreis</h2>
-    <p>Alle Kosten auf dieser Seite werden mit deinem Preis berechnet. Den Arbeitspreis findest du auf deiner Stromrechnung (Cent pro kWh).</p>
-    <label class="feld"><span class="feld-label">Strompreis</span>
+<dialog class="dialog profil-dialog" id="profil-dialog">
+  <form method="dialog" data-profil-form>
+    <div class="profil-kopf"><span class="profil-avatar" data-profil-avatar aria-hidden="true">👤</span>
+      <div><h2>Mein Profil</h2><p>Damit passt sich die Seite an dich und deinen Haushalt an. Alles bleibt nur auf deinem Gerät.</p></div></div>
+    <label class="feld"><span class="feld-label">Dein Vorname (optional)</span>
+      <span class="feld-rahmen"><input type="text" name="name" maxlength="24" autocomplete="given-name" placeholder="z. B. Alex"></span></label>
+    <div class="regler"><div class="regler-kopf"><span>Personen im Haushalt</span></div>
+      <div class="segmente segmente-klein">{"".join(f'<label><input type="radio" name="personen" value="{n}"><span>{n}{"+" if n == 5 else ""}</span></label>' for n in range(1, 6))}</div></div>
+    <label class="feld"><span class="feld-label">Dein Strompreis (Arbeitspreis von der Rechnung)</span>
       <span class="feld-rahmen"><input type="number" name="preis" min="0.05" max="2" step="0.01" inputmode="decimal" value="{ctx['preis']}"><em>€/kWh</em></span></label>
+    <div class="regler"><div class="regler-kopf"><span>Warmwasser</span></div>
+      <div class="segmente segmente-klein"><label><input type="radio" name="wasser" value="strom"><span>Mit Strom</span></label><label><input type="radio" name="wasser" value="anders"><span>Heizung</span></label><label><input type="radio" name="wasser" value="unklar"><span>Weiß nicht</span></label></div></div>
+    <div class="regler"><div class="regler-kopf"><span>Du wohnst in</span></div>
+      <div class="segmente segmente-klein"><label><input type="radio" name="wohnen" value="wohnung"><span>Wohnung</span></label><label><input type="radio" name="wohnen" value="haus"><span>Haus</span></label></div></div>
+    <label class="schalter"><span><b>Balkon oder Garten mit Sonne</b><small>Zeigt dir das Balkonkraftwerk</small></span><input type="checkbox" name="balkon" role="switch"></label>
+    <label class="schalter"><span><b>E-Auto</b><small>Zeigt dir Ladekosten und Tipps</small></span><input type="checkbox" name="eauto" role="switch"></label>
     <div class="dialog-aktionen">
-      <button class="knopf knopf-text" value="standard" type="submit">Standard</button>
+      <button class="knopf knopf-text knopf-gefahr" value="loeschen" type="submit">Alles löschen</button>
       <button class="knopf knopf-text" value="abbrechen" type="submit">Abbrechen</button>
       <button class="knopf knopf-gefuellt" value="ok" type="submit">Speichern</button>
     </div>
@@ -486,7 +497,7 @@ def startseite(ctx, geraete):
          "Leistung in Watt × Betriebsstunden ÷ 1000 ergibt die Kilowattstunden (kWh). Multipliziert mit deinem Strompreis pro kWh erhältst du die Kosten. "
          "Beispiel: 100 W × 3 Stunden täglich × 365 Tage ÷ 1000 = 109,5 kWh im Jahr."),
         ("Welcher Strompreis ist voreingestellt?",
-         f"Als Annahme {preis_txt} €/kWh. Über das Regler-Symbol oben rechts stellst du deinen eigenen Preis ein – er gilt dann für alle Rechner."),
+         f"Als Annahme {preis_txt} €/kWh. Über das Profil-Symbol oben rechts stellst du deinen eigenen Preis ein – er gilt dann für alle Rechner."),
         ("Was kostet Standby im Jahr?",
          f"Jedes Watt Dauer-Standby sind 8,76 kWh im Jahr – bei {preis_txt} €/kWh rund {euro(8.76 * ctx['preis'])}."),
         ("Kann ich den Stromfresser-Check als App nutzen?",
@@ -506,6 +517,24 @@ def startseite(ctx, geraete):
   </form>
   <div class="chip-reihe chip-scroll">{favoriten}</div>
 </section>
+
+<section class="mein-bereich" data-mein-bereich hidden aria-label="Dein persönlicher Überblick">
+  <div class="mb-kopf">
+    <div><span class="overline" data-mb-zeit>Hallo</span><h2 class="mb-gruss" data-mb-gruss>Dein Strom-Überblick</h2></div>
+    <button class="knopf knopf-tonal ripple" type="button" data-profil-oeffnen>{icon('person')}Profil</button>
+  </div>
+  <div class="mb-raster">
+    <div class="ringe-karte"><svg class="ringe" viewBox="0 0 120 120" data-ringe aria-hidden="true"></svg><ul class="ringe-legende" data-ringe-legende></ul></div>
+    <div class="mb-kacheln" data-mb-kacheln></div>
+  </div>
+  <div class="mb-block"><span class="overline">Für dich</span><div class="karussell mb-empfehlungen" data-mb-empfehlungen></div></div>
+  <div class="mb-block"><span class="overline">Deine Abzeichen</span><div class="abzeichen-reihe" data-abzeichen></div></div>
+</section>
+<aside class="personalisieren-karte" data-personalisieren hidden>
+  <span class="pk-emoji" aria-hidden="true">👋</span>
+  <div><strong>Mach die Seite zu deiner</strong><p>Sag uns kurz, wie du wohnst – dann passen sich Rechner, Tipps und Empfehlungen an deinen Haushalt an.</p></div>
+  <button class="knopf knopf-gefuellt ripple" type="button" data-profil-oeffnen>Profil anlegen</button>
+</aside>
 
 <section class="kennzahlen" aria-label="Kennzahlen">
   <div><b data-hochzaehlen="{len(geraete)}">{len(geraete)}</b><small>Geräte</small></div>
@@ -652,6 +681,7 @@ def geraeteseite(ctx, g, geraete):
   <p class="lead">{e(gross(voll))} verbraucht bei typischer Nutzung etwa <strong>{zahl(kwh)} kWh pro Jahr</strong>.
   Bei <span data-preis-anzeige>{preis_txt} €/kWh</span> sind das rund <strong>{euro_kwh(kwh)} im Jahr</strong> bzw. <strong>{euro_kwh(kwh, 12)} im Monat</strong>.{standby_html}</p>
 </section>
+<div class="persoenlich" data-persoenlich hidden></div>
 {rechner_form(ctx, g)}
 <div class="hinweis-karte">{icon('info')}<p><strong>Annahme:</strong> {e(g['hinweis'])} Passe die Regler an dein Gerät an.</p></div>
 <div class="knopf-reihe"><a class="knopf knopf-tonal ripple" href="{s.link('werkzeuge/vergleich/')}?a={g['slug']}">⚖️ Mit anderem Gerät vergleichen</a></div>
@@ -914,7 +944,7 @@ def datenschutz_seite(ctx):
 <h2>Hosting</h2>
 <p>Diese Website wird bei GitHub Pages gehostet (GitHub Inc., 88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, USA). Beim Aufruf der Seiten verarbeitet GitHub technisch notwendige Daten wie deine IP-Adresse, um die Seite auszuliefern und die Sicherheit zu gewährleisten (berechtigtes Interesse, Art. 6 Abs. 1 lit. f DSGVO). Details: <a href="https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement" rel="nofollow noopener">Datenschutzerklärung von GitHub</a>.</p>
 <h2>Rechner, Haushalts-Check und Quiz</h2>
-<p>Alle Berechnungen laufen ausschließlich in deinem Browser. Deinen Strompreis, deine Haushaltsliste und deinen Quiz-Rekord speichert die Seite nur lokal in deinem Browser (Local Storage), damit sie beim nächsten Besuch noch da sind. Diese Daten werden nicht übertragen und du kannst sie jederzeit über die Browsereinstellungen löschen. Diese Website setzt selbst keine Cookies.</p>
+<p>Alle Berechnungen laufen ausschließlich in deinem Browser. Dein Profil (freiwilliger Vorname, Haushaltsgröße, Wohnsituation, Strompreis), deine Haushaltsliste, deine Spar-Check-Antworten und umgesetzten Maßnahmen, gelesene Ratgeber, Abzeichen und deinen Quiz-Rekord speichert die Seite nur lokal in deinem Browser (Local Storage), damit die Seite beim nächsten Besuch auf dich zugeschnitten ist. Über „Mein Profil → Alles löschen“ entfernst du diese Daten jederzeit. Diese Daten werden nicht übertragen und du kannst sie jederzeit über die Browsereinstellungen löschen. Diese Website setzt selbst keine Cookies.</p>
 {statistik}
 <h2>Offline-Nutzung</h2>
 <p>Damit die Seite als App installiert und offline genutzt werden kann, speichert ein sogenannter Service Worker Seiten und Dateien dieser Website im Zwischenspeicher deines Browsers. Dabei werden keine personenbezogenen Daten erhoben.</p>
@@ -966,7 +996,7 @@ def werkzeug_karten(s, schluessel):
 
 
 def artikel_karte(s, a):
-    return (f'<a class="artikel-karte ripple" href="{s.link("wissen/" + a["slug"] + "/")}"><span class="ak-emoji" aria-hidden="true">{a["emoji"]}</span>'
+    return (f'<a class="artikel-karte ripple" data-artikel="{a["slug"]}" href="{s.link("wissen/" + a["slug"] + "/")}"><span class="ak-emoji" aria-hidden="true">{a["emoji"]}</span>'
             f'<strong>{e(a["titel"])}</strong><small>{e(a["kurz"])}</small><span class="ak-mehr">Lesen{icon("chevron")}</span></a>')
 
 
@@ -1249,7 +1279,7 @@ def wissen_artikel(ctx, a):
     cta_text, cta_ziel = a["werkzeug"]
     weitere = [x for x in ARTIKEL if x["slug"] != a["slug"]]
     inhalt = f"""
-<div class="lesefortschritt" aria-hidden="true"><span data-lesefortschritt></span></div>
+<div class="lesefortschritt" aria-hidden="true"><span data-lesefortschritt data-artikel-slug="{a['slug']}"></span></div>
 <nav class="krumen" aria-label="Brotkrümel"><a href="{s.wurzel}">Start</a>{icon('chevron')}<a href="{s.link('wissen/')}">Wissen</a>{icon('chevron')}<span>{e(a['titel'])}</span></nav>
 <section class="seitenkopf">
   <div class="seiten-icon" aria-hidden="true">{a['emoji']}</div>

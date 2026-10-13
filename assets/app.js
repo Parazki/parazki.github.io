@@ -112,20 +112,51 @@
     if (p > 0 && p < 5) schreib("preis", p); else loesche("preis");
     aktualisiereAlles();
   }
-  const dialog = $("#preis-dialog");
-  $$("[data-preis-oeffnen]").forEach((b) => b.addEventListener("click", () => {
+  // ------------------------------------------------ Mein Profil (bleibt nur auf diesem Gerät)
+  const profil = () => lies("profil", {}) || {};
+  const profilPersonen = () => parseInt(profil().personen, 10) || 0;
+  const dialog = $("#profil-dialog");
+  const profilForm = dialog ? $("[data-profil-form]", dialog) : null;
+  function profilOeffnen() {
     if (!dialog || !dialog.showModal) { const p = prompt("Dein Strompreis in €/kWh", String(preis())); if (p) setzePreis(parseFloat(p.replace(",", "."))); return; }
-    dialog.querySelector("input").value = preis();
+    const pr = profil();
+    profilForm.elements.name.value = pr.name || "";
+    profilForm.elements.preis.value = preis();
+    ["personen", "wasser", "wohnen"].forEach((k) => {
+      $$(`input[name="${k}"]`, profilForm).forEach((r) => { r.checked = String(pr[k] || (k === "personen" ? lies("personen", "") : "")) === r.value; });
+    });
+    profilForm.elements.balkon.checked = !!pr.balkon;
+    profilForm.elements.eauto.checked = !!pr.eauto;
+    $("[data-profil-avatar]", dialog).textContent = pr.name ? pr.name.trim()[0].toUpperCase() : "👤";
     dialog.showModal();
-  }));
+  }
+  $$("[data-profil-oeffnen]").forEach((b) => b.addEventListener("click", profilOeffnen));
   if (dialog) dialog.addEventListener("close", () => {
     if (dialog.returnValue === "ok") {
-      setzePreis(parseFloat(String(dialog.querySelector("input").value).replace(",", ".")));
-      zaehle("strompreis-geaendert");
-      snackbar(`Strompreis: ${zahl(preis(), 2)} €/kWh – alle Kosten aktualisiert`);
-    } else if (dialog.returnValue === "standard") {
-      setzePreis(NaN);
-      snackbar(`Standardpreis ${zahl(STANDARD_PREIS, 2)} €/kWh wiederhergestellt`);
+      const f = profilForm.elements;
+      const wert = (k) => { const r = $(`input[name="${k}"]:checked`, profilForm); return r ? r.value : undefined; };
+      const neu = { name: f.name.value.trim().slice(0, 24), personen: wert("personen"), wasser: wert("wasser"), wohnen: wert("wohnen"), balkon: f.balkon.checked, eauto: f.eauto.checked };
+      Object.keys(neu).forEach((k) => { if (neu[k] === undefined || neu[k] === "") delete neu[k]; });
+      schreib("profil", neu);
+      if (neu.personen) schreib("personen", +neu.personen);
+      const sc = lies("sparcheck", {}) || {};
+      if (neu.personen) sc.personen = neu.personen;
+      if (neu.wasser) sc.wasser = neu.wasser;
+      if (Object.keys(sc).length) schreib("sparcheck", sc);
+      setzePreis(parseFloat(String(f.preis.value).replace(",", ".")));
+      zaehle("profil-gespeichert", { personen: neu.personen || "?" });
+      persoenlichAnwenden(true);
+      setTimeout(abzeichenPruefen, 3500);
+      snackbar(neu.name ? `Danke, ${neu.name}! Die Seite passt sich jetzt an deinen Haushalt an.` : "Profil gespeichert – die Seite passt sich jetzt an deinen Haushalt an.");
+    } else if (dialog.returnValue === "loeschen") {
+      const sicherung = {};
+      try { Object.keys(localStorage).filter((k) => k.startsWith("sf:")).forEach((k) => { sicherung[k] = localStorage.getItem(k); localStorage.removeItem(k); }); } catch (e) { /* egal */ }
+      aktualisiereAlles();
+      persoenlichAnwenden(true);
+      snackbar("Alle deine Daten auf diesem Gerät wurden gelöscht", { text: "Rückgängig", fn: () => {
+        try { Object.entries(sicherung).forEach(([k, v]) => localStorage.setItem(k, v)); } catch (e) { /* egal */ }
+        aktualisiereAlles(); persoenlichAnwenden(true);
+      } });
     }
   });
 
@@ -434,7 +465,17 @@
     });
     if (lesebalken) {
       const h = document.documentElement.scrollHeight - innerHeight;
-      lesebalken.style.width = (h > 0 ? Math.min(100, scrollY / h * 100) : 0) + "%";
+      const anteil = h > 0 ? Math.min(100, scrollY / h * 100) : 0;
+      lesebalken.style.width = anteil + "%";
+      const slug = lesebalken.dataset.artikelSlug;
+      if (slug && anteil >= 85) {
+        const gelesen = lies("gelesen", []) || [];
+        if (!gelesen.includes(slug)) {
+          schreib("gelesen", gelesen.concat(slug));
+          snackbar("📚 Ratgeber als gelesen markiert");
+          setTimeout(abzeichenPruefen, 0); // erst nach dem vollständigen Start aufrufen
+        }
+      }
     }
   }
   if (geschichten.length || lesebalken) {
@@ -592,36 +633,43 @@
   }
 
   // ------------------------------------------------ Spar-Check
+  const pers = (a) => parseInt(a.personen, 10) || 2;
+  const MASSNAHMEN = [
+    { id: "dusche", e: "🚿", t: "Sparduschkopf montieren", text: "Halbiert die Wassermenge beim Duschen – und damit den Strom für den Durchlauferhitzer.",
+      wenn: (a) => a.wasser === "strom", kwh: (a) => 200 * pers(a), q: "Sparduschkopf", link: "geraet/durchlauferhitzer/", lt: "Durchlauferhitzer" },
+    { id: "heizdecke", e: "🛋️", t: "Heizdecke statt Heizlüfter", text: "Wärmt dich mit rund 60 statt 2.000 Watt – direkt am Sofa oder Schreibtisch.",
+      wenn: (a) => a.heizen !== "nie", kwh: (a) => (a.heizen === "oft" ? 530 : 260), q: "Heizdecke Abschaltautomatik", link: "geraet/heizluefter/", lt: "Heizlüfter-Rechner" },
+    { id: "led", e: "💡", t: "Auf LED umstellen", text: "Eine LED braucht rund 85 % weniger Strom als eine Glühbirne und hält viel länger.",
+      wenn: (a) => a.licht !== "led", kwh: (a) => (a.licht === "alt" ? 450 : 200), q: "LED Lampe E27 warmweiß 806 lm", link: "geraet/gluehbirne/", lt: "Glühbirne vs. LED" },
+    { id: "trockner", e: "🌀", t: "Wärmepumpentrockner statt Kondenstrockner", text: "Braucht für die gleiche Wäsche nur einen Bruchteil des Stroms.",
+      wenn: (a) => a.trockner === "kondens", kwh: (a) => (pers(a) <= 2 ? 250 : 380), q: "Wärmepumpentrockner", link: "werkzeuge/austausch/", lt: "Austausch-Rechner" },
+    { id: "standby", e: "🔌", t: "Standby konsequent abschalten", text: "Schaltbare Steckdosenleisten trennen Fernseher, Konsole und Co. komplett vom Netz.",
+      wenn: (a) => a.standby !== "wenig", kwh: (a) => (a.standby === "viel" ? 280 : 140), q: "Steckdosenleiste schaltbar", link: "werkzeuge/standby/", lt: "Standby-Rechner" },
+    { id: "kuehlschrank", e: "🧊", t: "Alten Kühlschrank ersetzen", text: "Geräte über 15 Jahre verbrauchen oft doppelt so viel wie moderne.",
+      wenn: (a) => a.kuehl === "alt", kwh: () => 150, q: "Kühlschrank Energieeffizienzklasse A", link: "werkzeuge/austausch/", lt: "Lohnt sich das?" },
+    { id: "leine", e: "🧺", t: "Öfter an der Leine trocknen", text: "Jeder Trockengang an der Luft kostet 0 Cent.",
+      wenn: (a) => a.trockner !== "nein", kwh: (a) => (a.trockner === "kondens" ? 120 : 50) * (pers(a) <= 2 ? 1 : 1.5), q: "Wäscheständer platzsparend", link: "geraet/waermepumpentrockner/", lt: "Trockner-Rechner" },
+    { id: "waschen", e: "🫧", t: "Mit 30 °C waschen", text: "Das Aufheizen macht den Großteil aus – 30 statt 60 °C spart mehr als die Hälfte pro Waschgang.",
+      wenn: (a) => a.waschen !== "30", kwh: (a) => (a.waschen === "60" ? 50 : 15) * pers(a), q: "", link: "geraet/waschmaschine/", lt: "Waschmaschinen-Rechner" },
+    { id: "kuehltemp", e: "🌡️", t: "Kühlschrank auf 7 °C stellen", text: "Jedes Grad kälter kostet rund 6 % mehr Strom.",
+      wenn: (a) => a.kuehl !== "alt", kwh: () => 20, q: "Kühlschrank Thermometer", link: "geraet/kuehlschrank/", lt: "Kühlschrank-Rechner" },
+    { id: "wlan", e: "📶", t: "WLAN nachts abschalten", text: "Die meisten Router haben eine Nachtschaltung – einmal einstellen, für immer sparen.",
+      wenn: () => true, kwh: () => 25, q: "", link: "geraet/wlan-router/", lt: "Router-Rechner" },
+  ];
+
+  // Persönlicher Sparplan aus den Spar-Check-Antworten
+  const sparPlan = (a) => MASSNAHMEN.filter((m) => m.wenn(a)).map((m) => ({ ...m, wert: m.kwh(a) })).sort((x, y) => y.wert - x.wert);
+  const sparCheckFertig = (a) => ["personen", "wasser", "kuehl", "trockner", "licht", "standby", "heizen", "waschen"].every((k) => a && a[k]);
   const scEl = $("[data-spar-check]");
   if (scEl) {
     const fragen = $$(".sc-frage", scEl);
     const anzahl = fragen.length;
     const spiel = $(".sc-spiel", scEl), ergebnis = $("[data-sc-ergebnis]", scEl);
     let antworten = lies("sparcheck", {}) || {};
+    // Vorbelegung aus dem Profil
+    if (!antworten.personen && profil().personen) antworten.personen = String(profil().personen);
+    if (!antworten.wasser && profil().wasser) antworten.wasser = profil().wasser;
     let index = 0, summe = 0;
-    const pers = (a) => parseInt(a.personen, 10) || 2;
-    const MASSNAHMEN = [
-      { e: "🚿", t: "Sparduschkopf montieren", text: "Halbiert die Wassermenge beim Duschen – und damit den Strom für den Durchlauferhitzer.",
-        wenn: (a) => a.wasser === "strom", kwh: (a) => 200 * pers(a), q: "Sparduschkopf", link: "geraet/durchlauferhitzer/", lt: "Durchlauferhitzer" },
-      { e: "🛋️", t: "Heizdecke statt Heizlüfter", text: "Wärmt dich mit rund 60 statt 2.000 Watt – direkt am Sofa oder Schreibtisch.",
-        wenn: (a) => a.heizen !== "nie", kwh: (a) => (a.heizen === "oft" ? 530 : 260), q: "Heizdecke Abschaltautomatik", link: "geraet/heizluefter/", lt: "Heizlüfter-Rechner" },
-      { e: "💡", t: "Auf LED umstellen", text: "Eine LED braucht rund 85 % weniger Strom als eine Glühbirne und hält viel länger.",
-        wenn: (a) => a.licht !== "led", kwh: (a) => (a.licht === "alt" ? 450 : 200), q: "LED Lampe E27 warmweiß 806 lm", link: "geraet/gluehbirne/", lt: "Glühbirne vs. LED" },
-      { e: "🌀", t: "Wärmepumpentrockner statt Kondenstrockner", text: "Braucht für die gleiche Wäsche nur einen Bruchteil des Stroms.",
-        wenn: (a) => a.trockner === "kondens", kwh: (a) => (pers(a) <= 2 ? 250 : 380), q: "Wärmepumpentrockner", link: "werkzeuge/austausch/", lt: "Austausch-Rechner" },
-      { e: "🔌", t: "Standby konsequent abschalten", text: "Schaltbare Steckdosenleisten trennen Fernseher, Konsole und Co. komplett vom Netz.",
-        wenn: (a) => a.standby !== "wenig", kwh: (a) => (a.standby === "viel" ? 280 : 140), q: "Steckdosenleiste schaltbar", link: "werkzeuge/standby/", lt: "Standby-Rechner" },
-      { e: "🧊", t: "Alten Kühlschrank ersetzen", text: "Geräte über 15 Jahre verbrauchen oft doppelt so viel wie moderne.",
-        wenn: (a) => a.kuehl === "alt", kwh: () => 150, q: "Kühlschrank Energieeffizienzklasse A", link: "werkzeuge/austausch/", lt: "Lohnt sich das?" },
-      { e: "🧺", t: "Öfter an der Leine trocknen", text: "Jeder Trockengang an der Luft kostet 0 Cent.",
-        wenn: (a) => a.trockner !== "nein", kwh: (a) => (a.trockner === "kondens" ? 120 : 50) * (pers(a) <= 2 ? 1 : 1.5), q: "Wäscheständer platzsparend", link: "geraet/waermepumpentrockner/", lt: "Trockner-Rechner" },
-      { e: "🫧", t: "Mit 30 °C waschen", text: "Das Aufheizen macht den Großteil aus – 30 statt 60 °C spart mehr als die Hälfte pro Waschgang.",
-        wenn: (a) => a.waschen !== "30", kwh: (a) => (a.waschen === "60" ? 50 : 15) * pers(a), q: "", link: "geraet/waschmaschine/", lt: "Waschmaschinen-Rechner" },
-      { e: "🌡️", t: "Kühlschrank auf 7 °C stellen", text: "Jedes Grad kälter kostet rund 6 % mehr Strom.",
-        wenn: (a) => a.kuehl !== "alt", kwh: () => 20, q: "Kühlschrank Thermometer", link: "geraet/kuehlschrank/", lt: "Kühlschrank-Rechner" },
-      { e: "📶", t: "WLAN nachts abschalten", text: "Die meisten Router haben eine Nachtschaltung – einmal einstellen, für immer sparen.",
-        wenn: () => true, kwh: () => 25, q: "", link: "geraet/wlan-router/", lt: "Router-Rechner" },
-    ];
 
     function zeigeFrage(i) {
       index = i;
@@ -636,26 +684,43 @@
       spiel.hidden = true;
       ergebnis.hidden = false;
       const p = preis();
-      const liste = MASSNAHMEN.filter((m) => m.wenn(antworten)).map((m) => ({ ...m, wert: m.kwh(antworten) })).sort((x, y) => y.wert - x.wert);
+      const liste = sparPlan(antworten);
+      const erledigt = lies("erledigt", []) || [];
       const kwh = liste.reduce((s, m) => s + m.wert, 0);
       summe = kwh * p;
       zeigeZahl($("[data-sc-summe]", scEl), summe, (x) => "bis zu " + euro(x));
       $("[data-sc-kwh]", scEl).textContent = zahl(kwh) + " kWh";
       $("[data-sc-anzahl]", scEl).textContent = liste.length;
       $("[data-sc-zehn]", scEl).textContent = euro(summe * 10);
+      const gespart = liste.filter((m) => erledigt.includes(m.id)).reduce((s, m) => s + m.wert, 0) * p;
+      let chip = $("[data-sc-gespart]", scEl);
+      if (!chip) { chip = document.createElement("span"); chip.className = "eh-chip"; chip.dataset.scGespart = ""; $("[data-sc-zehn]", scEl).parentElement.after(chip); }
+      chip.innerHTML = `✅ schon umgesetzt: <b>${euro(gespart)}</b> / Jahr`;
       const max = Math.max(1, ...liste.map((m) => m.wert));
       const stern = SF.tag ? "*" : "";
-      $("[data-sc-massnahmen]", scEl).innerHTML = liste.map((m, i) => `<div class="massnahme" style="animation-delay:${i * 70}ms">
+      $("[data-sc-massnahmen]", scEl).innerHTML = liste.map((m, i) => `<div class="massnahme${erledigt.includes(m.id) ? " erledigt" : ""}" style="animation-delay:${i * 70}ms">
         <span class="massnahme-emoji" aria-hidden="true">${m.e}</span><strong>${esc(m.t)}</strong>
         <span class="massnahme-wert">${euro(m.wert * p)}<small>pro Jahr</small></span><p>${esc(m.text)}</p>
         <span class="massnahme-balken"><i style="width:${m.wert / max * 100}%;animation-delay:${i * 70 + 200}ms"></i></span>
-        <span class="massnahme-aktionen"><a class="knopf knopf-tonal ripple" href="${ROOT}${m.link}">${esc(m.lt)}</a>
+        <span class="massnahme-aktionen"><button type="button" class="knopf erledigt-knopf ripple" data-erledigt="${m.id}" aria-pressed="${erledigt.includes(m.id)}">${erledigt.includes(m.id) ? "✓ Erledigt" : "Als erledigt markieren"}</button>
+        <a class="knopf knopf-tonal ripple" href="${ROOT}${m.link}">${esc(m.lt)}</a>
         ${m.q ? `<a class="knopf knopf-text ripple" href="${esc(amazonLink(m.q))}" rel="${SF.tag ? "sponsored " : ""}nofollow noopener" target="_blank">Passendes Produkt${stern}</a>` : ""}</span></div>`).join("");
       zaehle("spar-check-beendet", { summe: Math.round(summe) });
+      $$("[data-erledigt]", scEl).forEach((b) => b.addEventListener("click", () => {
+        const liste2 = lies("erledigt", []) || [];
+        const id = b.dataset.erledigt;
+        const an = !liste2.includes(id);
+        schreib("erledigt", an ? liste2.concat(id) : liste2.filter((x) => x !== id));
+        vibriere(an ? [20, 30, 20] : 10);
+        if (an) zaehle("massnahme-erledigt", { id });
+        zeigeErgebnis();
+        abzeichenPruefen();
+      }));
     }
     fragen.forEach((f, i) => $$(".sc-option", f).forEach((o) => o.addEventListener("click", () => {
       antworten[f.dataset.frage] = o.dataset.wert;
       schreib("sparcheck", antworten);
+      if (f.dataset.frage === "personen" || f.dataset.frage === "wasser") schreib("profil", { ...profil(), [f.dataset.frage]: o.dataset.wert });
       $$(".sc-option", f).forEach((x) => x.classList.toggle("gewaehlt", x === o));
       vibriere(12);
       setTimeout(() => {
@@ -796,7 +861,7 @@
     const listeEl = $("[data-hh-liste]", hhEl);
     const suche = $("[data-hh-suche]", hhEl);
     const vorschlaege = $("[data-hh-vorschlaege]", hhEl);
-    let personen = lies("personen", 2);
+    let personen = parseInt(profil().personen, 10) || lies("personen", 2);
     const radio = $(`input[name="personen"][value="${personen}"]`, hhEl);
     if (radio) radio.checked = true;
 
@@ -858,7 +923,7 @@
       render();
       snackbar("Liste geleert", { text: "Rückgängig", fn: () => { speichern(sicherung); render(); } });
     });
-    $$('input[name="personen"]', hhEl).forEach((r) => r.addEventListener("change", () => { personen = +r.value; schreib("personen", personen); render(); }));
+    $$('input[name="personen"]', hhEl).forEach((r) => r.addEventListener("change", () => { personen = +r.value; schreib("personen", personen); schreib("profil", { ...profil(), personen: String(personen) }); render(); }));
 
     function aendereMenge(slug, delta) {
       const l = laden();
@@ -1153,6 +1218,156 @@
     addEventListener("load", () => navigator.serviceWorker.register(ROOT + "sw.js").catch(() => null));
   }
 
+  // ------------------------------------------------ Persönliche Ebene
+  const SKALIERUNG = {
+    waschmaschine: { feld: "nutzungen", wert: (p) => Math.min(14, p * 2), text: (v) => `${v} Waschgänge pro Woche` },
+    geschirrspueler: { feld: "nutzungen", wert: (p) => Math.min(14, Math.max(2, Math.round(p * 1.75))), text: (v) => `${v} Spülgänge pro Woche` },
+    waermepumpentrockner: { feld: "nutzungen", wert: (p) => Math.min(14, Math.round(p * 1.5)), text: (v) => `${v} Trockengänge pro Woche` },
+    kondenstrockner: { feld: "nutzungen", wert: (p) => Math.min(14, Math.round(p * 1.5)), text: (v) => `${v} Trockengänge pro Woche` },
+    durchlauferhitzer: { feld: "stunden", wert: (p) => Math.round(p * 0.15 * 100) / 100, text: (v) => `${Math.round(v * 60)} Minuten warmes Wasser pro Tag` },
+  };
+  const ARTIKEL = (SF.seiten || []).filter((x) => x.k === "Ratgeber").map((x) => ({ ...x, slug: x.u.split("/")[1] }));
+
+  function fortschritt() {
+    const pr = profil();
+    const hh = (lies("haushalt", []) || []).filter((x) => nachSlug[x.s]);
+    const sc = lies("sparcheck", {}) || {};
+    const fertig = sparCheckFertig(sc);
+    const plan = fertig ? sparPlan(sc) : [];
+    const erledigt = lies("erledigt", []) || [];
+    const umgesetzt = plan.filter((m) => erledigt.includes(m.id));
+    const gelesen = (lies("gelesen", []) || []).filter((s) => ARTIKEL.some((a) => a.slug === s));
+    return {
+      pr, hh, fertig, plan, umgesetzt, gelesen, quiz: lies("quizrekord", 0) || 0,
+      hhKwh: hh.reduce((s, x) => s + kwhJahr(x.w, x.h, x.n, x.wj, x.sb) * (x.m || 1), 0),
+      potenzial: plan.reduce((s, m) => s + m.wert, 0), gespart: umgesetzt.reduce((s, m) => s + m.wert, 0),
+    };
+  }
+
+  const ABZEICHEN = [
+    { id: "profil", e: "👤", t: "Ganz meins", d: "Profil angelegt", ok: (f) => !!f.pr.personen },
+    { id: "haushalt", e: "🏠", t: "Haushalts-Held", d: "8 Geräte erfasst", ok: (f) => f.hh.length >= 8 },
+    { id: "sparfuchs", e: "🦊", t: "Sparfuchs", d: "Spar-Check gemacht", ok: (f) => f.fertig },
+    { id: "macher", e: "✅", t: "Macher", d: "3 Maßnahmen umgesetzt", ok: (f) => f.umgesetzt.length >= 3 },
+    { id: "quiz", e: "🧠", t: "Quiz-Profi", d: "8 von 10 im Quiz", ok: (f) => f.quiz >= 8 },
+    { id: "wissen", e: "📚", t: "Wissensdurst", d: "5 Ratgeber gelesen", ok: (f) => f.gelesen.length >= 5 },
+  ];
+  function abzeichenPruefen() {
+    const f = fortschritt();
+    const bekannt = lies("abzeichen", []) || [];
+    const neu = ABZEICHEN.filter((a) => a.ok(f) && !bekannt.includes(a.id));
+    if (!neu.length) return;
+    schreib("abzeichen", bekannt.concat(neu.map((a) => a.id)));
+    const text = neu.length === 1 ? `🏅 Neues Abzeichen: ${neu[0].e} ${neu[0].t}` : `🏅 ${neu.length} neue Abzeichen: ${neu.map((a) => a.e + " " + a.t).join(", ")}`;
+    setTimeout(() => { snackbar(text); vibriere([30, 50, 30, 50, 60]); neu.forEach((a) => zaehle("abzeichen", { id: a.id })); }, 900);
+    dashboard();
+  }
+
+  function ringe(svg, werte) {
+    const farben = ["var(--primary)", "#FFB300", "#4F86C6"];
+    svg.innerHTML = werte.map((w, i) => {
+      const r = 50 - i * 13, u = 2 * Math.PI * r, l = Math.max(0.001, Math.min(1, w)) * u;
+      return `<circle cx="60" cy="60" r="${r}" class="ring-spur" style="stroke:${farben[i]}"></circle>
+        <circle cx="60" cy="60" r="${r}" class="ring-wert" style="stroke:${farben[i]};--l:${l};--u:${u};animation-delay:${i * 120}ms" stroke-dasharray="${l} ${u}"></circle>`;
+    }).join("");
+  }
+
+  function dashboard() {
+    const mb = $("[data-mein-bereich]");
+    if (!mb) return;
+    const f = fortschritt();
+    const p = preis();
+    const hatDaten = !!(f.pr.personen || f.pr.name || f.hh.length || f.fertig);
+    const einladung = $("[data-personalisieren]");
+    if (einladung) einladung.hidden = hatDaten;
+    mb.hidden = !hatDaten;
+    if (!hatDaten) return;
+    const std = new Date().getHours();
+    $("[data-mb-zeit]", mb).textContent = std < 5 ? "Gute Nacht" : std < 11 ? "Guten Morgen" : std < 17 ? "Guten Tag" : std < 22 ? "Guten Abend" : "Gute Nacht";
+    $("[data-mb-gruss]", mb).textContent = f.pr.name ? `Hallo ${f.pr.name} 👋` : "Dein Strom-Überblick";
+    const nArtikel = ARTIKEL.length || 1;
+    ringe($("[data-ringe]", mb), [f.hh.length / 8, f.plan.length ? f.umgesetzt.length / f.plan.length : 0, f.gelesen.length / nArtikel]);
+    $("[data-ringe-legende]", mb).innerHTML = [
+      ["var(--primary)", "Haushalt", `${Math.min(f.hh.length, 8)}/8 Geräte`],
+      ["#FFB300", "Sparplan", f.plan.length ? `${f.umgesetzt.length}/${f.plan.length} umgesetzt` : "noch offen"],
+      ["#4F86C6", "Wissen", `${f.gelesen.length}/${nArtikel} gelesen`],
+    ].map(([c, t, w]) => `<li><i style="background:${c}"></i><span>${t}</span><b>${w}</b></li>`).join("");
+    const kachel = (href, e, label, wert, sub) => `<a class="mb-kachel ripple" href="${ROOT}${href}"><span class="mbk-emoji" aria-hidden="true">${e}</span><small>${label}</small><b>${wert}</b><em>${sub}</em></a>`;
+    $("[data-mb-kacheln]", mb).innerHTML = [
+      f.hh.length ? kachel("haushalt/", "🏠", "Dein Haushalt", euro(f.hhKwh * p), `${zahl(f.hhKwh)} kWh pro Jahr`) : kachel("haushalt/", "🏠", "Dein Haushalt", "Erfassen", "Geräte zusammenstellen"),
+      f.fertig ? kachel("werkzeuge/spar-check/", "🎯", "Sparpotenzial", "bis " + euro(f.potenzial * p), `${f.plan.length} Maßnahmen`) : kachel("werkzeuge/spar-check/", "🎯", "Sparpotenzial", "Ermitteln", "Spar-Check in 60 Sek."),
+      kachel("werkzeuge/spar-check/", "✅", "Schon gespart", euro(f.gespart * p), "pro Jahr, umgesetzt"),
+      `<button type="button" class="mb-kachel ripple" data-profil-oeffnen-kachel><span class="mbk-emoji" aria-hidden="true">⚡</span><small>Dein Strompreis</small><b>${zahl(p, 2)} €</b><em>pro kWh · ändern</em></button>`,
+    ].join("");
+    $("[data-profil-oeffnen-kachel]", mb).addEventListener("click", profilOeffnen);
+    const ideen = [];
+    if (!f.hh.length) ideen.push(["🏠", "Haushalt erfassen", "Sieh, was dein Zuhause im Jahr kostet", "haushalt/"]);
+    if (!f.fertig) ideen.push(["🎯", "Spar-Check machen", "8 Fragen bis zu deinem Sparplan", "werkzeuge/spar-check/"]);
+    if (f.pr.wasser === "strom") ideen.push(["🚿", "Durchlauferhitzer checken", "Weil dein Warmwasser mit Strom läuft", "geraet/durchlauferhitzer/"]);
+    if (f.pr.balkon) ideen.push(["☀️", "Balkonkraftwerk rechnen", "Weil du Balkon oder Garten mit Sonne hast", "balkonkraftwerk/"]);
+    if (f.pr.eauto) ideen.push(["🚗", "E-Auto-Ladekosten", "Weil du ein E-Auto fährst", "werkzeuge/e-auto/"]);
+    if (f.pr.wohnen === "haus") ideen.push(["🌙", "Grundlast finden", "In Häusern laufen oft mehr Geräte dauerhaft", "wissen/grundlast/"]);
+    if (f.plan.length && f.umgesetzt.length < f.plan.length) { const m = f.plan.find((x) => !f.umgesetzt.includes(x)); ideen.push([m.e, m.t, `Dein größter offener Hebel: ${euro(m.wert * p)} / Jahr`, "werkzeuge/spar-check/"]); }
+    ideen.push(["🔄", "Tarif prüfen", "Oft die schnellste Ersparnis", "werkzeuge/tarifvergleich/"]);
+    const naechster = ARTIKEL.find((a) => !f.gelesen.includes(a.slug));
+    if (naechster) ideen.push([naechster.e, naechster.t, "Dein nächster Ratgeber", naechster.u]);
+    if (!f.quiz) ideen.push(["🧠", "Stromfresser-Quiz", "Teste dein Gefühl für Stromkosten", "quiz/"]);
+    $("[data-mb-empfehlungen]", mb).innerHTML = ideen.slice(0, 6).map(([e, t, g, u]) =>
+      `<a class="empfehlung ripple" href="${ROOT}${u}"><span class="ak-emoji" aria-hidden="true">${e}</span><strong>${esc(t)}</strong><small>${esc(g)}</small></a>`).join("");
+    $("[data-abzeichen]", mb).innerHTML = ABZEICHEN.map((a) => {
+      const ok = a.ok(f);
+      return `<div class="abzeichen${ok ? " verdient" : ""}" title="${esc(a.d)}"><span aria-hidden="true">${ok ? a.e : "🔒"}</span><b>${esc(a.t)}</b><small>${esc(a.d)}</small></div>`;
+    }).join("");
+  }
+
+  function geraetPersoenlich(neuBerechnen) {
+    const box = $("[data-persoenlich]");
+    const form = $('form[data-rechner="geraet"][data-slug]');
+    if (!box || !form) return;
+    const slug = form.dataset.slug, g = nachSlug[slug];
+    const teile = [];
+    const regel = SKALIERUNG[slug], pers = profilPersonen();
+    if (regel && pers && (neuBerechnen || !form._angepasst)) {
+      const v = regel.wert(pers);
+      form.elements[regel.feld].value = v;
+      $$(".schieber[data-fuer]", form).forEach((s) => s._sync());
+      form._angepasst = true;
+      form.dispatchEvent(new Event("input", { bubbles: true }));
+      teile.push(`<p>👤 <b>Angepasst an deinen Haushalt mit ${pers} ${pers === 1 ? "Person" : "Personen"}:</b> ${regel.text(v)}. <button type="button" class="link-knopf" data-typisch>Typische Werte</button></p>`);
+    }
+    const hh = (lies("haushalt", []) || []).filter((x) => nachSlug[x.s]);
+    const eintrag = hh.find((x) => x.s === slug);
+    if (eintrag) {
+      const ges = hh.reduce((s, x) => s + kwhJahr(x.w, x.h, x.n, x.wj, x.sb) * (x.m || 1), 0);
+      const k = kwhJahr(eintrag.w, eintrag.h, eintrag.n, eintrag.wj, eintrag.sb) * (eintrag.m || 1);
+      teile.push(`<p>🏠 <b>In deinem Haushalt:</b> ${eintrag.m > 1 ? eintrag.m + " × " : ""}${esc(g.n)} kostet ${euro(k * preis())} im Jahr – ${zahl(ges ? k / ges * 100 : 0)} % deiner erfassten Stromkosten. <a href="${ROOT}haushalt/">Zum Haushalt</a></p>`);
+    }
+    box.innerHTML = teile.join("");
+    box.hidden = !teile.length;
+    const typ = $("[data-typisch]", box);
+    if (typ) typ.addEventListener("click", () => {
+      const r = $("[data-zuruecksetzen]", form);
+      if (r) r.click();
+      typ.closest("p").remove();
+      box.hidden = !box.children.length;
+    });
+  }
+
+  function persoenlichAnwenden(neu) {
+    const pr = profil();
+    $$("[data-avatar]").forEach((a) => {
+      a.hidden = !pr.name;
+      a.textContent = pr.name ? pr.name.trim()[0].toUpperCase() : "";
+      a.closest(".profil-knopf").classList.toggle("hat-avatar", !!pr.name);
+    });
+    $$(".artikel-karte[data-artikel]").forEach((k) => k.classList.toggle("gelesen", (lies("gelesen", []) || []).includes(k.dataset.artikel)));
+    dashboard();
+    geraetPersoenlich(neu);
+    if (haushalt && neu) haushalt.render();
+  }
+
   aktualisiereAlles();
+  persoenlichAnwenden(false);
+  abzeichenPruefen();
   document.documentElement.dataset.appBereit = "1"; // Gesundheits-Marker: Skript komplett durchgelaufen
 })();

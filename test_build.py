@@ -217,6 +217,18 @@ class Bauen(unittest.TestCase):
             self.assertIn("data-spotlight-oeffnen", text)
             self.assertIn("data-spotlight-eingabe", text)
 
+    def test_personalisierung_bausteine(self):
+        start = (self.ziel / "index.html").read_text(encoding="utf-8")
+        for merkmal in ("data-mein-bereich", "data-personalisieren", "data-ringe", "data-abzeichen", "data-mb-empfehlungen"):
+            self.assertIn(merkmal, start)
+        for pfad in ("index.html", "geraet/waschmaschine/index.html", "wissen/grundlast/index.html"):
+            text = (self.ziel / pfad).read_text(encoding="utf-8")
+            self.assertIn('id="profil-dialog"', text, pfad)
+            self.assertIn("data-profil-oeffnen", text, pfad)
+            self.assertNotIn("preis-dialog", text, pfad)
+        self.assertIn("data-persoenlich", (self.ziel / "geraet" / "waschmaschine" / "index.html").read_text(encoding="utf-8"))
+        self.assertIn('data-artikel-slug="grundlast"', (self.ziel / "wissen" / "grundlast" / "index.html").read_text(encoding="utf-8"))
+
     def test_kein_html_injection_aus_daten(self):
         for g in self.geraete:
             for feld in ("name", "hinweis", "tipp"):

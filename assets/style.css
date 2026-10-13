@@ -1010,3 +1010,96 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 .sc-ergebnis, .spar-check { min-width: 0; }
 /* Hereingleitende Animationen dürfen nie seitliches Scrollen auslösen */
 .inhalt { overflow-x: clip; }
+
+/* ================================================ Personalisierung: Profil, Dashboard, Ringe, Abzeichen */
+/* Avatar in der App-Leiste */
+.profil-knopf { position: relative; }
+.profil-knopf .avatar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), #2BA57A); color: #fff; font-weight: 700; font-size: .95rem; box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 2px 8px -2px rgba(0,108,76,.6); }
+.profil-knopf.hat-avatar > .ic { display: none; }
+
+/* Profil-Dialog */
+.profil-dialog { width: min(94vw, 460px); max-height: 92vh; overflow-y: auto; }
+.profil-dialog form { display: flex; flex-direction: column; gap: 16px; }
+.profil-kopf { display: flex; gap: 14px; align-items: flex-start; }
+.profil-kopf h2 { margin: 0 0 4px; }
+.profil-kopf p { margin: 0; }
+.profil-avatar { display: grid; place-items: center; width: 56px; height: 56px; flex: none; border-radius: 50%; font-size: 1.6rem; font-weight: 700; color: #fff; background: linear-gradient(135deg, var(--primary), #2BA57A 60%, #FFB300); box-shadow: inset 0 1px 0 rgba(255,255,255,.45); }
+.profil-dialog .segmente span { padding: 0 8px; }
+.profil-dialog .dialog-aktionen { margin-top: 4px; }
+.knopf-gefahr { color: var(--error); margin-right: auto; }
+.knopf-gefahr:hover { background: color-mix(in srgb, var(--error) 10%, transparent); }
+
+/* Schalter (Material 3 Switch) */
+.schalter { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; border-radius: 16px; background: var(--glas-stark); box-shadow: var(--glas-schatten); cursor: pointer; }
+.schalter span { display: flex; flex-direction: column; }
+.schalter b { font-weight: 500; }
+.schalter small { color: var(--on-surface-variant); font-size: .8125rem; }
+.schalter input { -webkit-appearance: none; appearance: none; flex: none; width: 52px; height: 32px; margin: 0; border-radius: 16px; border: 2px solid var(--outline); background: var(--surface-highest); position: relative; cursor: pointer; transition: background-color .25s var(--kurve), border-color .25s; }
+.schalter input::before { content: ""; position: absolute; top: 50%; left: 6px; width: 16px; height: 16px; border-radius: 50%; background: var(--outline); transform: translateY(-50%); transition: all .3s var(--kurve); }
+.schalter input:checked { background: var(--primary); border-color: var(--primary); }
+.schalter input:checked::before { left: 24px; width: 24px; height: 24px; background: var(--on-primary); }
+.schalter input:active::before { width: 28px; }
+.schalter input:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+
+/* Einladung zur Personalisierung */
+.personalisieren-karte { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 16px 0 0; padding: 18px 20px; border-radius: 26px; background-color: var(--glas); background-image: var(--glas-glanz); box-shadow: var(--glas-schatten); -webkit-backdrop-filter: var(--glas-unschaerfe); backdrop-filter: var(--glas-unschaerfe); }
+.personalisieren-karte > div { flex: 1 1 200px; }
+.personalisieren-karte p { margin: 2px 0 0; color: var(--on-surface-variant); font-size: .9375rem; }
+.pk-emoji { font-size: 2.2rem; animation: winken 2.4s ease-in-out infinite; transform-origin: 70% 70%; }
+@keyframes winken { 0%, 60%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(16deg); } 20%, 40% { transform: rotate(-8deg); } }
+
+/* Persönliches Dashboard */
+.mein-bereich { margin: 16px 0 0; padding: 20px; border-radius: 30px; background-color: var(--glas); background-image: var(--glas-glanz); box-shadow: var(--glas-schatten), 0 20px 50px -24px rgba(0, 80, 56, .35); -webkit-backdrop-filter: var(--glas-unschaerfe-stark); backdrop-filter: var(--glas-unschaerfe-stark); animation: rein .6s var(--kurve); }
+.mb-kopf { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.mb-gruss { font-size: clamp(1.6rem, 6.5vw, 2.3rem); font-weight: 700; letter-spacing: -.03em; margin: 0; background: linear-gradient(100deg, var(--on-surface) 30%, var(--primary) 70%, #FFB300); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.mb-kopf .knopf { flex: none; }
+.mb-raster { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 16px; }
+@media (min-width: 640px) { .mb-raster { grid-template-columns: 0.9fr 1.1fr; align-items: stretch; } }
+.ringe-karte { display: flex; align-items: center; gap: 16px; padding: 14px 16px; border-radius: 22px; background: var(--glas-stark); box-shadow: var(--glas-schatten); }
+.ringe { width: 128px; height: 128px; flex: none; transform: rotate(-90deg); }
+.ringe circle { fill: none; stroke-width: 11; stroke-linecap: round; }
+.ring-spur { opacity: .18; }
+.ring-wert { animation: ring-fuellen 1.4s var(--kurve) both; filter: drop-shadow(0 0 4px rgba(0,0,0,.12)); }
+@keyframes ring-fuellen { from { stroke-dasharray: 0.001 999; } }
+.ringe-legende { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; flex: 1; min-width: 0; }
+.ringe-legende li { display: grid; grid-template-columns: 12px 1fr; column-gap: 8px; align-items: center; }
+.ringe-legende i { width: 12px; height: 12px; border-radius: 50%; grid-row: span 2; }
+.ringe-legende span { font-size: .8125rem; color: var(--on-surface-variant); }
+.ringe-legende b { font-weight: 600; font-size: .9375rem; font-variant-numeric: tabular-nums; }
+.mb-kacheln { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mb-kachel { display: flex; flex-direction: column; gap: 1px; padding: 14px; border: 0; border-radius: 20px; text-align: left; font: inherit; color: var(--on-surface); text-decoration: none; cursor: pointer; background: var(--glas-stark); box-shadow: var(--glas-schatten); transition: transform .2s var(--kurve); }
+.mb-kachel:active { transform: scale(.97); }
+.mbk-emoji { font-size: 1.3rem; }
+.mb-kachel small { color: var(--on-surface-variant); font-size: .75rem; margin-top: 4px; }
+.mb-kachel b { font-size: 1.25rem; font-weight: 700; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.mb-kachel em { font-style: normal; font-size: .75rem; color: var(--on-surface-variant); }
+.mb-block { margin-top: 18px; }
+.mb-block .overline { margin-bottom: 8px; }
+.empfehlung { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-radius: 22px; color: var(--on-surface); text-decoration: none; background: var(--glas-stark); background-image: var(--glas-glanz); box-shadow: var(--glas-schatten); flex: 0 0 min(72%, 230px) !important; }
+.empfehlung strong { font-weight: 600; }
+.empfehlung small { color: var(--on-surface-variant); font-size: .8125rem; line-height: 1.35; }
+.abzeichen-reihe { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+@media (min-width: 640px) { .abzeichen-reihe { grid-template-columns: repeat(6, 1fr); } }
+.abzeichen { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; padding: 12px 6px; border-radius: 18px; background: var(--glas-stark); box-shadow: var(--glas-schatten); opacity: .55; filter: grayscale(1); transition: opacity .3s, filter .3s; }
+.abzeichen span { font-size: 1.8rem; line-height: 1.2; }
+.abzeichen b { font-size: .75rem; font-weight: 600; }
+.abzeichen small { font-size: .6875rem; color: var(--on-surface-variant); line-height: 1.25; }
+.abzeichen.verdient { opacity: 1; filter: none; background-image: linear-gradient(160deg, rgba(255, 201, 74, .28), transparent 60%); }
+.abzeichen.verdient span { animation: hupf .7s var(--kurve); }
+
+/* Persönlicher Hinweis auf Geräteseiten */
+.persoenlich { margin: 12px 0 0; padding: 4px 16px; border-radius: 20px; background-color: color-mix(in srgb, var(--secondary-container) 78%, transparent); background-image: var(--glas-glanz); color: var(--on-secondary-container); box-shadow: var(--glas-schatten); -webkit-backdrop-filter: var(--glas-unschaerfe); backdrop-filter: var(--glas-unschaerfe); animation: rein .5s var(--kurve); }
+.persoenlich p { margin: 12px 0; font-size: .9375rem; }
+.persoenlich a { color: inherit; font-weight: 600; }
+.link-knopf { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: inherit; text-decoration: underline; cursor: pointer; }
+
+/* Spar-Check: erledigte Maßnahmen */
+.erledigt-knopf { background: var(--glas-stark); color: var(--on-surface); box-shadow: inset 0 0 0 1px var(--outline-variant); }
+.erledigt-knopf[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); box-shadow: none; }
+.massnahme.erledigt { background-color: color-mix(in srgb, var(--primary-container) 55%, transparent); }
+.massnahme.erledigt strong { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--primary) 60%, transparent); }
+.massnahme.erledigt .massnahme-emoji { background: var(--primary-container); }
+
+/* Gelesene Ratgeber */
+.artikel-karte { position: relative; }
+.artikel-karte.gelesen::after { content: "✓ Gelesen"; position: absolute; top: 14px; right: 14px; padding: 3px 10px; border-radius: 10px; font-size: .75rem; font-weight: 600; background: var(--primary-container); color: var(--on-primary-container); }
