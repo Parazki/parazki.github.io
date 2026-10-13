@@ -11,6 +11,9 @@
   const BEWEGUNG_AUS = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const $ = (sel, el = document) => el.querySelector(sel);
   const $$ = (sel, el = document) => Array.from(el.querySelectorAll(sel));
+  // Eigene Illustrationen (assets/bilder/<schlüssel>.svg) statt Emojis
+  const bildUrl = (key) => `${ROOT}assets/bilder/${key}.svg`;
+  const bildTag = (key, cls = "gbild") => `<img class="${cls}" src="${bildUrl(key)}" alt="" width="200" height="200" decoding="async">`;
 
   // ------------------------------------------------ Speicher (nur lokal im Browser)
   const lies = (k, d) => { try { const v = localStorage.getItem("sf:" + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -435,6 +438,8 @@
   // ------------------------------------------------ Scroll-Geschichten (Apple-Stil) & Lesefortschritt
   const geschichten = $$("[data-story]");
   const lesebalken = $("[data-lesefortschritt]");
+  const leuchten = $$("[data-leuchttext]");
+  if (!BEWEGUNG_AUS) leuchten.forEach((l) => { l.classList.add("lebendig"); l._woerter = $$(".lw", l); l._an = -1; });
   if (geschichten.length && !BEWEGUNG_AUS) {
     geschichten.forEach((st) => {
       st.classList.add("lebendig");
@@ -449,9 +454,17 @@
       if (!st.classList.contains("lebendig")) return;
       const box = st.getBoundingClientRect();
       if (box.bottom < -vh || box.top > vh * 2) return;
-      const p = Math.min(1, Math.max(0, -box.top / Math.max(1, box.height - vh)));
+      let p = Math.min(1, Math.max(0, -box.top / Math.max(1, box.height - vh)));
       const schritte = $$(".story-schritt", st);
       const n = schritte.length;
+      if (st.hasAttribute("data-intro")) {
+        // Vorspann: Das erste Stück der Strecke gehört nur dem Text, danach kommt das Bild
+        const q = 1 / (n + 1);
+        st.classList.toggle("intro-sichtbar", box.top < vh * 0.3);
+        const phase = p < q * 0.9 ? "intro" : "bild";
+        if (st.dataset.phase !== phase) st.dataset.phase = phase;
+        p = Math.max(0, (p - q) / (1 - q));
+      }
       const i = Math.min(n - 1, Math.floor(p * n * 0.999));
       st.style.setProperty("--p", p.toFixed(4));
       if (st.dataset.aktiv !== String(i)) {
@@ -465,6 +478,15 @@
           else { z._wert = undefined; z.textContent = "0" + kwh; }
         });
       }
+    });
+    leuchten.forEach((l) => {
+      if (!l.classList.contains("lebendig")) return;
+      const b = l.getBoundingClientRect();
+      if (b.bottom < -vh || b.top > vh * 2) return;
+      // Wort für Wort: beginnt, wenn der Absatz unten ins Bild kommt, fertig, wenn sein Ende die Mitte erreicht
+      const anteil = Math.min(1, Math.max(0, (vh * 0.85 - b.top) / (b.height + vh * 0.35)));
+      const an = Math.round(anteil * l._woerter.length);
+      if (an !== l._an) { l._woerter.forEach((w, k) => w.classList.toggle("an", k < an)); l._an = an; }
     });
     if (lesebalken) {
       const h = document.documentElement.scrollHeight - innerHeight;
@@ -481,7 +503,7 @@
       }
     }
   }
-  if (geschichten.length || lesebalken) {
+  if (geschichten.length || lesebalken || leuchten.length) {
     const anstossen = () => { if (!scrollGeplant) { scrollGeplant = true; requestAnimationFrame(scrollBild); } };
     addEventListener("scroll", anstossen, { passive: true });
     addEventListener("resize", anstossen);
@@ -590,8 +612,12 @@
         const kwh = { a: geraetKwh(g.a), b: geraetKwh(g.b) };
         ["a", "b"].forEach((k) => {
           const sp = $(`[data-vg="${k}"]`, vgForm);
-          const em = $("[data-vg-emoji]", sp);
-          if (em.textContent !== g[k].e) { em.textContent = g[k].e; em.style.animation = "none"; void em.offsetWidth; em.style.animation = ""; }
+          const im = $("[data-vg-bild]", sp);
+          if (im && im.dataset.slug !== g[k].s) {
+            const war = im.dataset.slug;
+            im.src = bildUrl(g[k].s); im.dataset.slug = g[k].s;
+            if (war) { const em = im.parentElement; em.style.animation = "none"; void em.offsetWidth; em.style.animation = ""; }
+          }
           $("[data-vg-name]", sp).textContent = g[k].n;
           zeigeZahl($("[data-vg-euro]", sp), kwh[k] * p, euro);
           $("[data-vg-monat]", sp).textContent = euro(kwh[k] * p / 12);
@@ -637,6 +663,8 @@
 
   // ------------------------------------------------ Spar-Check
   const pers = (a) => parseInt(a.personen, 10) || 2;
+  const MASSNAHME_BILD = { dusche: "dusche", heizdecke: "heizdecke", led: "led", trockner: "waermepumpentrockner", standby: "leiste",
+    kuehlschrank: "kuehlschrank", leine: "staender", waschen: "waschmaschine", kuehltemp: "thermometer", wlan: "zeitschaltuhr" };
   const MASSNAHMEN = [
     { id: "dusche", e: "🚿", t: "Sparduschkopf montieren", text: "Halbiert die Wassermenge beim Duschen – und damit den Strom für den Durchlauferhitzer.",
       wenn: (a) => a.wasser === "strom", kwh: (a) => 200 * pers(a), q: "Sparduschkopf", link: "geraet/durchlauferhitzer/", lt: "Durchlauferhitzer" },
@@ -702,7 +730,7 @@
       const max = Math.max(1, ...liste.map((m) => m.wert));
       const stern = SF.tag ? "*" : "";
       $("[data-sc-massnahmen]", scEl).innerHTML = liste.map((m, i) => `<div class="massnahme${erledigt.includes(m.id) ? " erledigt" : ""}" style="animation-delay:${i * 70}ms">
-        <span class="massnahme-emoji" aria-hidden="true">${m.e}</span><strong>${esc(m.t)}</strong>
+        <span class="massnahme-emoji" aria-hidden="true">${MASSNAHME_BILD[m.id] ? bildTag(MASSNAHME_BILD[m.id]) : m.e}</span><strong>${esc(m.t)}</strong>
         <span class="massnahme-wert">${euro(m.wert * p)}<small>pro Jahr</small></span><p>${esc(m.text)}</p>
         <span class="massnahme-balken"><i style="width:${m.wert / max * 100}%;animation-delay:${i * 70 + 200}ms"></i></span>
         <span class="massnahme-aktionen"><button type="button" class="knopf erledigt-knopf ripple" data-erledigt="${m.id}" aria-pressed="${erledigt.includes(m.id)}">${erledigt.includes(m.id) ? "✓ Erledigt" : "Als erledigt markieren"}</button>
@@ -752,7 +780,7 @@
     const liste = $("[data-spotlight-ergebnisse]", spot);
     const REIHENFOLGE = ["Werkzeug", "Gerät", "Ratgeber", "Lexikon", "Seite"];
     let treffer = [], aktiv = 0;
-    const alle = () => SF.geraete.map((g) => ({ t: g.n, u: `geraet/${g.s}/`, e: g.e, k: "Gerät", d: `${g.k} · ${euro(geraetKwh(g) * preis())} / Jahr` }))
+    const alle = () => SF.geraete.map((g) => ({ t: g.n, u: `geraet/${g.s}/`, e: g.e, b: g.s, k: "Gerät", d: `${g.k} · ${euro(geraetKwh(g) * preis())} / Jahr` }))
       .concat(SF.seiten || []);
     function suche(q) {
       const nq = normal(q.trim());
@@ -760,7 +788,7 @@
         const beliebt = ["Spar-Check", "Zählerstand-Rechner", "Tarif-Vergleich", "Mein Haushalt"];
         return beliebt.map((t) => (SF.seiten || []).find((x) => x.t === t)).filter(Boolean)
           .concat(SF.geraete.filter((g) => ["kuehlschrank", "heizluefter", "spielkonsole"].includes(g.s))
-            .map((g) => ({ t: g.n, u: `geraet/${g.s}/`, e: g.e, k: "Gerät", d: g.k })));
+            .map((g) => ({ t: g.n, u: `geraet/${g.s}/`, e: g.e, b: g.s, k: "Gerät", d: g.k })));
       }
       return alle().map((x) => {
         const t = normal(x.t);
@@ -783,7 +811,7 @@
         if (!titel && x.top) { gruppe = "top"; html += '<p class="spot-gruppe">Top-Treffer</p>'; }
         else if (!titel && x.k !== gruppe) { gruppe = x.k; html += `<p class="spot-gruppe">${({ Werkzeug: "Werkzeuge", "Gerät": "Geräte", Ratgeber: "Ratgeber", Lexikon: "Lexikon", Seite: "Seiten" })[gruppe] || esc(gruppe)}</p>`; }
         html += `<a class="spot-treffer" role="option" href="${ROOT}${x.u}" data-i="${i}" aria-selected="${i === 0}">
-          <span class="emoji-kreis" aria-hidden="true">${x.e}</span><span><b>${esc(x.t)}</b>${x.d ? `<small>${esc(x.d)}</small>` : ""}</span><em>${esc(x.k)}</em></a>`;
+          <span class="emoji-kreis" aria-hidden="true">${x.b ? bildTag(x.b) : x.e}</span><span><b>${esc(x.t)}</b>${x.d ? `<small>${esc(x.d)}</small>` : ""}</span><em>${esc(x.k)}</em></a>`;
       });
       liste.innerHTML = html;
     }
@@ -897,7 +925,7 @@
         const b = document.createElement("button");
         b.type = "button";
         b.className = "vorschlag ripple";
-        b.innerHTML = `<span class="emoji-kreis" aria-hidden="true">${g.e}</span><span>${g.n}</span><small>${euro(geraetKwh(g) * p)} / Jahr</small>`;
+        b.innerHTML = `<span class="emoji-kreis" aria-hidden="true">${bildTag(g.s)}</span><span>${g.n}</span><small>${euro(geraetKwh(g) * p)} / Jahr</small>`;
         b.addEventListener("click", () => hinzufuegen(g.s));
         vorschlaege.appendChild(b);
       });
@@ -991,7 +1019,7 @@
       sortiert.forEach(({ x, g, kwh }) => {
         const li = document.createElement("li");
         li.className = "hh-eintrag";
-        li.innerHTML = `<span class="emoji-kreis" aria-hidden="true">${g.e}</span>
+        li.innerHTML = `<span class="emoji-kreis" aria-hidden="true">${bildTag(g.s)}</span>
           <span class="hh-name"><a href="${ROOT}geraet/${g.s}/">${g.n}</a><small>${zahl(kwh)} kWh · ${euro(kwh * p)} / Jahr</small></span>
           <span class="stepper"><button type="button" aria-label="Weniger" data-d="-1"><svg class="ic"><use href="#i-${x.m > 1 ? "minus" : "trash"}"/></svg></button>
           <output>${x.m}</output><button type="button" aria-label="Mehr" data-d="1"><svg class="ic"><use href="#i-plus"/></svg></button></span>`;
@@ -1045,7 +1073,7 @@
         const knopf = document.createElement("button");
         knopf.type = "button";
         knopf.className = "quiz-option ripple";
-        knopf.innerHTML = `<span class="qo-emoji" aria-hidden="true">${g.e}</span><span class="qo-name">${g.n}</span><span class="qo-kosten">${euro(geraetKwh(g) * preis())}</span>`;
+        knopf.innerHTML = `<span class="qo-emoji" aria-hidden="true">${bildTag(g.s)}</span><span class="qo-name">${g.n}</span><span class="qo-kosten">${euro(geraetKwh(g) * preis())}</span>`;
         knopf.addEventListener("click", () => antworte(g, a, b));
         optionen.appendChild(knopf);
       });

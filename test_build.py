@@ -229,6 +229,40 @@ class Bauen(unittest.TestCase):
         self.assertIn("data-persoenlich", (self.ziel / "geraet" / "waschmaschine" / "index.html").read_text(encoding="utf-8"))
         self.assertIn('data-artikel-slug="grundlast"', (self.ziel / "wissen" / "grundlast" / "index.html").read_text(encoding="utf-8"))
 
+    def test_eigene_bilder_vollstaendig_und_gueltig(self):
+        import xml.etree.ElementTree as ET
+        ordner = self.ziel / "assets" / "bilder"
+        for g in self.geraete:
+            self.assertTrue((ordner / f"{g['slug']}.svg").is_file(), g["slug"])
+        for datei in ordner.glob("*.svg"):
+            ET.fromstring(datei.read_text(encoding="utf-8"))  # wirft bei kaputtem SVG
+        # Jede Bild-Referenz auf jeder Seite zeigt auf eine vorhandene Datei
+        for seite in self.ziel.rglob("index.html"):
+            for ref in re.findall(r'(?:src|href)="([^"]*assets/bilder/[^"]+\.svg)"', seite.read_text(encoding="utf-8")):
+                self.assertTrue((seite.parent / ref).resolve().is_file(), f"{seite}: {ref}")
+        for key in ("messgeraet", "heizdecke", "leiste", "wallbox", "stromzaehler"):
+            self.assertTrue((ordner / f"{key}.svg").is_file(), key)
+
+    def test_produktbild_passt_zum_produkt(self):
+        self.assertEqual(build.produkt_bild("Heizdecke"), "heizdecke")
+        self.assertEqual(build.produkt_bild("Weinkühlschrank mit Effizienzklasse"), "weinkuehlschrank")
+        self.assertEqual(build.produkt_bild("Kühlschrank-Thermometer"), "thermometer")
+        self.assertEqual(build.produkt_bild("LED-Beamer"), "beamer")
+        self.assertEqual(build.produkt_bild("Zeitschaltuhr für die Steckdose"), "zeitschaltuhr")
+        self.assertEqual(build.produkt_bild("Steckdosen-Thermostat"), "thermostat")
+        for g in self.geraete:
+            self.assertIn(build.produkt_bild(g["produkt"]["label"]), build.BILDER, g["slug"])
+
+    def test_startseite_apple_buehnen(self):
+        start = (self.ziel / "index.html").read_text(encoding="utf-8")
+        self.assertIn('class="story story-mit-intro" data-story data-intro data-phase="intro"', start)
+        self.assertLess(start.index('class="story-intro"'), start.index('class="story-bild"'), "Text muss vor dem Bild stehen")
+        self.assertIn('class="bento"', start)
+        self.assertIn("data-leuchttext", start)
+        haus = start.split('class="haus-svg"')[1].split("</svg>")[0]
+        self.assertNotIn('<text class="raum-emoji', haus)
+        self.assertEqual(haus.count('<image class="raum-emoji'), 5)
+
     def test_kein_html_injection_aus_daten(self):
         for g in self.geraete:
             for feld in ("name", "hinweis", "tipp"):
