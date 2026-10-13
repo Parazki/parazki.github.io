@@ -223,6 +223,20 @@ def produkt_karte(ctx, label, text, query, emoji="🛒"):
 </aside>"""
 
 
+PRODUKT_BILDER = [("heizdecke", "🛋️"), ("steckdosenleiste", "🎚️"), ("master-slave", "🎚️"), ("zeitschaltuhr", "⏲️"), ("led", "💡"),
+                  ("thermometer", "🌡️"), ("sparduschkopf", "🚿"), ("wäscheständer", "🧺"), ("wasserkocher", "🫖"), ("heißluftfritteuse", "🍟"),
+                  ("hygrometer", "💧"), ("ventilator", "🪭"), ("thermostat", "🌡️"), ("steckdose", "🔌"), ("fettfilter", "🧽"), ("topf", "🍲"),
+                  ("ladekabel", "🔌"), ("ladestation", "🔌"), ("haarturban", "💆"), ("gehäuse", "📦"), ("abdichtung", "🪟"), ("balkonkraftwerk", "☀️"),
+                  ("trockner", "🌀"), ("waschmaschine", "🫧"), ("geschirrspüler", "🍽️"), ("kühlschrank", "🧊"), ("toaster", "🍞"), ("beamer", "📽️"),
+                  ("saugroboter", "🤖"), ("mähroboter", "🌱"), ("staubsauger", "🧹"), ("dampfglätter", "👕"), ("teichpumpe", "🐟"), ("weinkühlschrank", "🍷")]
+
+
+def produkt_emoji(label, ersatz):
+    """Passendes Produktbild statt des Geräte-Symbols (z. B. Heizdecke statt Heizlüfter)."""
+    klein = label.lower()
+    return next((em for wort, em in PRODUKT_BILDER if wort in klein), ersatz)
+
+
 def messgeraet_karte(ctx):
     return produkt_karte(ctx, "Echten Verbrauch messen statt schätzen",
                          "Ein Strommessgerät für die Steckdose zeigt Watt und kWh deines Geräts direkt an – "
@@ -246,11 +260,14 @@ def faq_jsonld(fragen):
     return '<script type="application/ld+json">' + json.dumps(daten, ensure_ascii=False) + "</script>"
 
 
-def euro_kwh(kwh, teiler=1, cls=""):
-    """Betrag, den app.js mit dem eigenen Strompreis des Besuchers neu berechnet."""
+def euro_kwh(kwh, teiler=1, cls="", rund=False):
+    """Betrag, den app.js mit dem eigenen Strompreis des Besuchers neu berechnet (rund: ganze Euro)."""
     t = f' data-teiler="{teiler}"' if teiler != 1 else ""
     c = f' class="{cls}"' if cls else ""
-    return f'<span{c} data-euro-kwh="{kwh:.3f}"{t}>{euro(kwh * PREIS_STANDARD[0] / teiler)}</span>'
+    wert = kwh * PREIS_STANDARD[0] / teiler
+    text = f"{zahl(round(wert))} €" if rund else euro(wert)
+    r = ' data-rund="1"' if rund else ""
+    return f'<span{c} data-euro-kwh="{kwh:.3f}"{t}{r}>{text}</span>'
 
 
 PREIS_STANDARD = [0.35]  # wird in baue() aus config.json gesetzt
@@ -349,7 +366,7 @@ def layout(seite, titel, beschreibung, inhalt, aktiv="", extra_head="", index=Tr
 <footer class="fuss">
   <div class="fuss-marke"><span class="logo">{icon('bolt')}</span><div><strong>{e(ctx['name'])}</strong><small>Stromkosten verstehen. Geld sparen.</small></div></div>
   <nav class="fuss-links" aria-label="Weitere Seiten">
-    <a href="{w}geraete/">Alle Geräte</a><a href="{w}haushalt/">Mein Haushalt</a><a href="{w}quiz/">Quiz</a>
+    <a href="{w}geraete/">Alle Geräte</a><a href="{w}haushalt/">Mein Haushalt</a><a href="{w}spar-produkte/">Spar-Produkte</a><a href="{w}quiz/">Quiz</a>
     <a href="{w}balkonkraftwerk/">Balkonkraftwerk</a><a href="{w}impressum/">Impressum</a><a href="{w}datenschutz/">Datenschutz</a>
   </nav>
   <div class="fuss-recht">
@@ -478,20 +495,8 @@ def startseite(ctx, geraete):
         f'<a class="kategorie-karte ripple" href="{s.link("geraete/")}?kat={quote_plus(k)}"><span class="kk-emoji" aria-hidden="true">{KATEGORIE_EMOJI[k]}</span>'
         f'<span>{e(k)}</span><small>{sum(1 for g in geraete if g["kategorie"] == k)} Geräte</small></a>'
         for k in KATEGORIEN if any(g["kategorie"] == k for g in geraete))
-    gb = nach_slug.get("gluehbirne")
-    led = nach_slug.get("led-lampe")
-    fakten = [
-        ("🔌", "1 Watt Dauer-Standby", f"kostet rund {euro_kwh(8.76)} im Jahr. Zehn Geräte mit je 2 W sind schnell über 50 €."),
-        ("🚿", "Oft unterschätzt", "Der Durchlauferhitzer ist in vielen Haushalten der größte Verbraucher – ein Sparduschkopf halbiert ihn."),
-    ]
-    if gb and led:
-        fakten.append(("💡", "Glühbirne gegen LED", f"Eine LED spart gegenüber einer 60-W-Birne rund {euro_kwh(jahresverbrauch_kwh(gb) - jahresverbrauch_kwh(led))} pro Jahr und Lampe."))
-    if "smartphone" in nach_slug:
-        fakten.append(("📱", "Handy laden", f"kostet im Jahr nur etwa {euro_kwh(jahresverbrauch_kwh(nach_slug['smartphone']))} – weniger als ein Kaffee."))
     top = sorted(geraete, key=jahresverbrauch_kwh, reverse=True)[0]
     ticker_start = f"{top['emoji']} {gross(top['name'])} · {euro(jahresverbrauch_kwh(top) * ctx['preis'])} im Jahr"
-    fakten_html = "".join(f'<div class="fakt-karte"><span class="fakt-emoji" aria-hidden="true">{em}</span><strong>{e(t)}</strong><p>{txt}</p></div>'
-                          for em, t, txt in fakten)
     fragen = [
         ("Wie berechne ich die Stromkosten eines Geräts?",
          "Leistung in Watt × Betriebsstunden ÷ 1000 ergibt die Kilowattstunden (kWh). Multipliziert mit deinem Strompreis pro kWh erhältst du die Kosten. "
@@ -503,20 +508,26 @@ def startseite(ctx, geraete):
         ("Kann ich den Stromfresser-Check als App nutzen?",
          "Ja. Im Browser auf dem Handy „Zum Startbildschirm hinzufügen“ bzw. „App installieren“ wählen – dann startet er wie eine App und funktioniert auch offline."),
     ]
+    galerie_slugs = ["kuehlschrank", "fernseher", "heizluefter", "waschmaschine", "spielkonsole", "wasserkocher"]
+    galerie = "".join(
+        f'<a class="galerie-teil ripple" href="{s.link("geraet/" + slug + "/")}" style="--i:{i}"><span class="gt-bild" aria-hidden="true">{nach_slug[slug]["emoji"]}</span>'
+        f'<b>{e(gross(nach_slug[slug]["name"]).split(" (")[0])}</b><small>{euro_kwh(jahresverbrauch_kwh(nach_slug[slug]))} / Jahr</small></a>'
+        for i, slug in enumerate(galerie_slugs) if slug in nach_slug)
     inhalt = f"""
 <section class="held">
-  <div class="held-text">
-    <span class="held-marke">{icon('bolt')} Kostenlos · ohne Anmeldung · {len(geraete)} Geräte</span>
-    <h1>Was kostet dein Gerät wirklich?</h1>
-    <p class="lead">Finde die Stromfresser in deinem Zuhause – mit Rechnern, Spartipps und deinem persönlichen Haushalts-Check.</p>
-    <div class="ticker" aria-hidden="true"><span class="ticker-punkt"></span><span class="ticker-fenster"><span class="ticker-text" data-ticker>{ticker_start}</span></span></div>
+  <p class="held-marke">{icon('bolt')} Kostenlos · ohne Anmeldung · {len(geraete)} Geräte</p>
+  <h1>Stromkosten berechnen.<br><span class="held-verlauf">Ganz einfach.</span></h1>
+  <p class="lead">Finde die Stromfresser in deinem Zuhause – mit Rechnern, Spartipps und deinem persönlichen Haushalts-Check.</p>
+  <div class="held-aktionen">
+    <a class="knopf knopf-gefuellt knopf-gross ripple" href="{s.link('werkzeuge/spar-check/')}">Spar-Check starten</a>
+    <a class="knopf knopf-text knopf-gross" href="{s.link('geraete/')}">Alle Geräte{icon('chevron')}</a>
   </div>
   <form class="suchleiste" action="{s.link('geraete/')}" method="get" role="search">
-    {icon('search')}<input type="search" name="q" placeholder="Gerät suchen …" aria-label="Gerät suchen" autocomplete="off">
-    <button class="knopf knopf-gefuellt ripple" type="submit">Suchen</button>
+    {icon('search')}<input type="search" name="q" placeholder="Gerät suchen, z. B. Kühlschrank" aria-label="Gerät suchen" autocomplete="off">
   </form>
-  <div class="chip-reihe chip-scroll">{favoriten}</div>
+  <div class="ticker" aria-hidden="true"><span class="ticker-punkt"></span><span class="ticker-fenster"><span class="ticker-text" data-ticker>{ticker_start}</span></span></div>
 </section>
+<div class="galerie" aria-label="Beliebte Geräte">{galerie}</div>
 
 <section class="mein-bereich" data-mein-bereich hidden aria-label="Dein persönlicher Überblick">
   <div class="mb-kopf">
@@ -536,13 +547,6 @@ def startseite(ctx, geraete):
   <button class="knopf knopf-gefuellt ripple" type="button" data-profil-oeffnen>Profil anlegen</button>
 </aside>
 
-<section class="kennzahlen" aria-label="Kennzahlen">
-  <div><b data-hochzaehlen="{len(geraete)}">{len(geraete)}</b><small>Geräte</small></div>
-  <div><b data-hochzaehlen="{len(KATEGORIEN)}">{len(KATEGORIEN)}</b><small>Bereiche</small></div>
-  <div><b>0 €</b><small>kostenlos</small></div>
-  <div><b>{icon('bolt')}</b><small>als App</small></div>
-</section>
-
 <aside class="install-karte" data-install-karte hidden>
   <span class="ik-icon">{icon('bolt')}</span>
   <div><strong>Als App installieren</strong><p>Direkt vom Startbildschirm öffnen – auch offline.</p></div>
@@ -555,10 +559,11 @@ def startseite(ctx, geraete):
   <span class="sp-knopf">Starten{icon('chevron')}</span>
 </a>
 
-<section class="werkzeuge">
-  {werkzeug_karten(s, ["haushalt", "zaehler", "tarif", "eauto", "standby", "quiz"])}
+<section class="abschnitt">
+  <div class="abschnitt-kopf"><div><span class="overline">Werkzeuge</span><h2>Alles, was du zum Sparen brauchst.</h2></div></div>
+  <div class="werkzeuge">{werkzeug_karten(s, ["haushalt", "zaehler", "tarif", "eauto", "standby", "quiz"])}</div>
+  <p class="mehr-link"><a class="knopf knopf-text" href="{s.link('werkzeuge/')}">Alle {len(WERKZEUGE) - 1} Werkzeuge{icon('chevron')}</a></p>
 </section>
-<p class="mehr-link"><a class="knopf knopf-text" href="{s.link('werkzeuge/')}">Alle {len(WERKZEUGE) - 1} Werkzeuge ansehen{icon('chevron')}</a></p>
 
 {haus_story(s, ctx)}
 
@@ -570,36 +575,34 @@ def startseite(ctx, geraete):
 </section>
 
 <section class="abschnitt">
-  <div class="abschnitt-kopf"><div><span class="overline">Ranking</span><h2>Die größten Stromfresser</h2></div><a class="knopf knopf-text" href="{s.link('geraete/')}">Alle {len(geraete)}{icon('chevron')}</a></div>
+  <div class="abschnitt-kopf"><div><span class="overline">Ranking</span><h2>Die größten Stromfresser.</h2></div><a class="knopf knopf-text" href="{s.link('geraete/')}">Alle {len(geraete)}{icon('chevron')}</a></div>
   <p class="unterzeile">Typische Jahreskosten bei <span data-preis-anzeige>{preis_txt} €/kWh</span></p>
-  {rangliste(s, geraete, anzahl=10)}
+  {rangliste(s, geraete, anzahl=8)}
 </section>
 
 <section class="abschnitt">
-  <span class="overline">Fakten</span>
-  <h2>Wusstest du?</h2>
-  <div class="karussell">{fakten_html}</div>
-</section>
-
-<section class="abschnitt" id="rechner">
-  <span class="overline">Selbst rechnen</span>
-  <h2>Freier Stromkosten-Rechner</h2>
-  <p class="unterzeile">Leistung steht auf dem Typenschild oder in der Anleitung.</p>
-  {rechner_form(ctx)}
+  <div class="abschnitt-kopf"><div><span class="overline">Spar-Helfer</span><h2>Kleine Helfer. Große Wirkung.</h2></div><a class="knopf knopf-text" href="{s.link('spar-produkte/')}">Alle{icon('chevron')}</a></div>
+  <div class="karussell produkt-karussell">{''.join(produkt_kachel(s, p) for p in SPAR_PRODUKTE[:6])}</div>
 </section>
 
 <section class="abschnitt">
-  <div class="abschnitt-kopf"><div><span class="overline">Wissen</span><h2>Strom verstehen</h2></div><a class="knopf knopf-text" href="{s.link('wissen/')}">Alle Ratgeber{icon('chevron')}</a></div>
+  <div class="abschnitt-kopf"><div><span class="overline">Wissen</span><h2>Strom verstehen.</h2></div><a class="knopf knopf-text" href="{s.link('wissen/')}">Alle Ratgeber{icon('chevron')}</a></div>
   <div class="karussell">{''.join(artikel_karte(s, a) for a in ARTIKEL)}</div>
 </section>
 
 <section class="abschnitt">
   <span class="overline">Entdecken</span>
-  <h2>Nach Bereich stöbern</h2>
+  <h2>Nach Bereich stöbern.</h2>
   <div class="kategorie-raster">{kategorien}</div>
 </section>
 
-{messgeraet_karte(ctx)}
+<section class="abschnitt" id="rechner">
+  <span class="overline">Selbst rechnen</span>
+  <h2>Freier Stromkosten-Rechner.</h2>
+  <p class="unterzeile">Die Leistung steht auf dem Typenschild oder in der Anleitung.</p>
+  {rechner_form(ctx)}
+</section>
+
 {faq_html(fragen)}
 """
     titel = f"Stromrechner {ctx['jahr']}: Stromkosten & Verbrauch jedes Geräts berechnen"
@@ -683,6 +686,8 @@ def geraeteseite(ctx, g, geraete):
 </section>
 <div class="persoenlich" data-persoenlich hidden></div>
 {rechner_form(ctx, g)}
+<p class="empfehlung-titel">Passend dazu</p>
+{produkt_karte(ctx, p['label'], p['text'], p['query'], produkt_emoji(p['label'], g['emoji']))}
 <div class="hinweis-karte">{icon('info')}<p><strong>Annahme:</strong> {e(g['hinweis'])} Passe die Regler an dein Gerät an.</p></div>
 <div class="knopf-reihe"><a class="knopf knopf-tonal ripple" href="{s.link('werkzeuge/vergleich/')}?a={g['slug']}">⚖️ Mit anderem Gerät vergleichen</a></div>
 <section class="abschnitt">
@@ -691,7 +696,6 @@ def geraeteseite(ctx, g, geraete):
     <p>{e(g['tipp'])}</p>
   </div>
 </section>
-{produkt_karte(ctx, p['label'], p['text'], p['query'], g['emoji'])}
 <section class="abschnitt">
   <span class="overline">Vergleich</span>
   <h2>{e(g['kategorie'])} im Vergleich</h2>
@@ -1016,17 +1020,31 @@ def story(schritte, bild, name):
 
 def haus_story(s, ctx):
     gesamt = HAUSHALT_SCHNITT[2]
-    bild = f'''<svg class="haus-svg" viewBox="0 0 360 270">
-  <line class="boden" x1="0" y1="250" x2="360" y2="250"/>
-  <path class="leitung" d="M300 250 V205 H272"/>
-  <polygon class="dach" points="18,112 150,28 282,112"/>
-  <rect class="hauswand" x="30" y="104" width="240" height="146" rx="8"/>
-  <rect class="raum r1" x="42" y="116" width="104" height="58" rx="6"/><text class="raum-emoji" x="94" y="154">🧊</text>
-  <rect class="raum r2" x="154" y="116" width="104" height="58" rx="6"/><text class="raum-emoji" x="206" y="154">📺</text>
-  <rect class="raum r3" x="42" y="182" width="104" height="58" rx="6"/><text class="raum-emoji" x="94" y="220">🫧</text>
-  <rect class="raum r4" x="154" y="182" width="104" height="58" rx="6"/><text class="raum-emoji" x="206" y="220">💻</text>
-  <text class="raum-emoji klein r1-zusatz" x="244" y="232">📶</text>
-  <g class="zaehler-box"><rect x="284" y="150" width="62" height="56" rx="10"/><text class="zaehler-zahl" x="315" y="181" data-story-zahl="{gesamt}">{zahl(gesamt)}</text><text class="zaehler-einheit" x="315" y="197">kWh</text></g>
+    sterne = "".join(f'<circle class="stern" cx="{x}" cy="{y}" r="{r}" style="--d:{d}s"/>'
+                     for x, y, r, d in ((30, 30, 1.2, 0), (78, 52, .9, 1.1), (120, 22, 1.1, .4), (240, 34, 1, 1.6), (300, 18, 1.3, .8),
+                                        (352, 46, .9, 2.1), (380, 24, 1.1, 1.3), (200, 12, .8, .2), (330, 80, .9, 1.8), (20, 88, 1, .6)))
+    partikel = "".join(f'<circle class="partikel" r="3.2"><animateMotion dur="1.8s" begin="{b}s" repeatCount="indefinite" path="M352 206 V244 H296"/></circle>'
+                       for b in (0, .45, .9, 1.35))
+    bild = f'''<svg class="haus-svg" viewBox="0 0 400 290">
+  <defs>
+    <radialGradient id="raumlicht" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#FFE29A"/><stop offset="1" stop-color="#FFB340"/></radialGradient>
+    <linearGradient id="dachlicht" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD60A"/><stop offset="1" stop-color="#FF9F0A"/></linearGradient>
+  </defs>
+  <g class="himmel-sterne">{sterne}<circle class="mond" cx="342" cy="44" r="13"/></g>
+  <path class="linie boden" pathLength="1" d="M10 262 H390"/>
+  <path class="dachflaeche" d="M54 150 L180 64 L306 150 Z"/>
+  <path class="linie" pathLength="1" d="M54 150 L180 64 L306 150"/>
+  <path class="linie" pathLength="1" d="M250 110 V80 H272 V125"/>
+  <path class="linie" pathLength="1" d="M72 262 V146 H288 V262"/>
+  <rect class="raum r1" x="86" y="158" width="74" height="42" rx="7"/><text class="raum-emoji" x="123" y="181">🧊</text>
+  <rect class="raum r2" x="200" y="158" width="74" height="42" rx="7"/><text class="raum-emoji" x="237" y="181">📺</text>
+  <rect class="raum r3" x="86" y="212" width="66" height="42" rx="7"/><text class="raum-emoji" x="119" y="235">🫧</text>
+  <rect class="raum r4" x="208" y="212" width="66" height="42" rx="7"/><text class="raum-emoji" x="241" y="235">💻</text>
+  <path class="linie tuer" pathLength="1" d="M164 262 V216 Q180 206 196 216 V262"/>
+  <text class="raum-emoji klein r1-zusatz" x="268" y="248">📶</text>
+  <path class="leitung" d="M352 206 V244 H296"/>
+  {partikel}
+  <g class="zaehler-box"><rect x="322" y="150" width="62" height="56" rx="12"/><text class="zaehler-zahl" x="353" y="181" data-story-zahl="{gesamt}">{zahl(gesamt)}</text><text class="zaehler-einheit" x="353" y="197">kWh</text></g>
 </svg>'''
     schritte = [
         ("Dein Zuhause", "Strom fließt rund um die Uhr.", "Auch wenn gerade niemand etwas einschaltet – irgendetwas läuft immer."),
@@ -1075,6 +1093,7 @@ def werkzeuge_uebersicht(ctx):
   {werkzeug_karten(s, ["sparcheck", "haushalt", "zaehler", "tarif", "eauto", "standby", "austausch", "vergleich", "solar", "quiz"])}
   <a class="werkzeug-karte ripple" href="{s.link('')}#rechner"><span class="wk-emoji" aria-hidden="true">🧮</span><strong>Freier Rechner</strong><small>Eigene Watt und Stunden eingeben</small>{icon('chevron', 'ic wk-pfeil')}</a>
   <a class="werkzeug-karte ripple" href="{s.link('geraete/')}"><span class="wk-emoji" aria-hidden="true">📋</span><strong>Geräte-Rechner</strong><small>52 Geräte mit typischen Werten</small>{icon('chevron', 'ic wk-pfeil')}</a>
+  <a class="werkzeug-karte ripple" href="{s.link('spar-produkte/')}"><span class="wk-emoji" aria-hidden="true">🛍️</span><strong>Spar-Produkte</strong><small>Kleine Helfer mit großer Wirkung</small>{icon('chevron', 'ic wk-pfeil')}</a>
 </section>
 {messgeraet_karte(ctx)}
 """
@@ -1303,6 +1322,77 @@ def wissen_artikel(ctx, a):
         "inLanguage": "de", "dateModified": ctx["heute"].isoformat(), "mainEntityOfPage": s.kanonisch,
         "author": {"@type": "Organization", "name": ctx["name"]}}, ensure_ascii=False) + "</script>"
     return s, layout(s, f"{a['titel']} ({ctx['jahr']})", a["beschreibung"], inhalt, "wissen", jsonld)
+
+
+# ---------------------------------------------------------------- Spar-Produkte (Partner-Empfehlungen)
+
+# (Schlüssel, Emoji, Name, Nutzen, gesparte kWh oder None, Einheit, Amazon-Suche, passende Seite, Hinweis)
+SPAR_PRODUKTE = [
+    ("messgeraet", "🔌", "Strommessgerät", "Zeigt Watt und kWh jedes Geräts – der beste Startpunkt, um versteckte Stromfresser zu finden.",
+     None, "", "Strommessgerät Steckdose", "wissen/grundlast/", "Unser Tipp"),
+    ("balkonkraftwerk", "☀️", "Balkonkraftwerk-Set", "Erzeugt eigenen Solarstrom für Kühlschrank, Router und alles, was tagsüber läuft.",
+     342, "pro Jahr", "Balkonkraftwerk 800W Komplettset", "balkonkraftwerk/", ""),
+    ("heizdecke", "🛋️", "Heizdecke", "Wärmt dich mit rund 60 statt 2.000 Watt – direkt am Sofa oder Schreibtisch.",
+     260, "pro Jahr statt Heizlüfter", "Heizdecke Abschaltautomatik", "geraet/heizdecke/", ""),
+    ("dusche", "🚿", "Sparduschkopf", "Halbiert die Wassermenge beim Duschen – und damit den Strom des Durchlauferhitzers.",
+     200, "pro Person und Jahr, bei Warmwasser über Strom", "Sparduschkopf", "geraet/durchlauferhitzer/", ""),
+    ("leiste", "🎚️", "Schaltbare Steckdosenleiste", "Ein Klick – und Fernseher, Konsole und Receiver ziehen keinen Standby-Strom mehr.",
+     140, "pro Jahr", "Steckdosenleiste schaltbar", "werkzeuge/standby/", ""),
+    ("staender", "🧺", "Wäscheständer", "Jeder Trockengang an der Luft statt im Kondenstrockner kostet 0 Cent.",
+     120, "pro Jahr statt Trockner", "Wäscheständer platzsparend", "geraet/kondenstrockner/", ""),
+    ("zeitschaltuhr", "⏲️", "Digitale Zeitschaltuhr", "Schaltet Boiler, Router oder Kaffeemaschine nachts automatisch ab.",
+     80, "pro Jahr", "Zeitschaltuhr Steckdose digital", "geraet/untertischboiler/", ""),
+    ("led", "💡", "LED-Lampen E27", "Ersetzen eine 60-W-Glühbirne mit rund 8 W – bei gleicher Helligkeit.",
+     76, "pro Lampe und Jahr", "LED Lampe E27 warmweiß 806 lm", "geraet/gluehbirne/", ""),
+    ("masterslave", "🖥️", "Master-Slave-Steckdosenleiste", "Schaltet Monitor und Lautsprecher automatisch mit dem PC ab.",
+     50, "pro Jahr", "Master Slave Steckdosenleiste", "geraet/gaming-pc/", ""),
+    ("thermometer", "🌡️", "Kühlschrank-Thermometer", "Zeigt, ob dein Kühlschrank kälter läuft als nötig.",
+     20, "pro Jahr", "Kühlschrank Thermometer", "geraet/kuehlschrank/", ""),
+    ("wasserkocher", "🫖", "Wasserkocher mit Temperaturwahl", "Erhitzt Wasser nur so heiß, wie du es wirklich brauchst.",
+     15, "pro Jahr", "Wasserkocher Temperatureinstellung", "geraet/wasserkocher/", ""),
+]
+
+
+def produkt_kachel(s, p):
+    ctx = s.ctx
+    key, emoji, name, nutzen, kwh, einheit, query, link, badge = p
+    stern = "*" if ctx["tag"] else ""
+    rel = "sponsored nofollow noopener" if ctx["tag"] else "nofollow noopener"
+    spart = (f'<p class="spp-spart">Spart bis zu <b>{euro_kwh(kwh, rund=True)}</b> {e(einheit)}</p>' if kwh
+             else '<p class="spp-spart">Findet heraus, wo sich Sparen lohnt</p>')
+    abzeichen = f'<span class="spp-badge">{e(badge)}</span>' if badge else ""
+    return f'''<article class="sp-produkt">
+  {abzeichen}<span class="spp-bild" aria-hidden="true">{emoji}</span>
+  <h3>{e(name)}</h3><p class="spp-nutzen">{e(nutzen)}</p>{spart}
+  <div class="spp-aktionen"><a class="knopf knopf-kaufen ripple" href="{e(amazon_link(ctx, query))}" rel="{rel}" target="_blank">Bei Amazon ansehen{stern}</a>
+  <a class="knopf knopf-text" href="{s.link(link)}">Mehr erfahren</a></div>
+</article>'''
+
+
+def spar_produkte_seite(ctx):
+    s = Seite(ctx, "spar-produkte/")
+    faq = [
+        ("Welches Spar-Produkt lohnt sich am meisten?", "Das hängt von deinem Haushalt ab. Am meisten bringen meist Produkte, die große Verbraucher ersetzen: Heizdecke statt Heizlüfter, Sparduschkopf beim Durchlauferhitzer, Wäscheständer statt Trockner. Der Spar-Check zeigt dir deine persönliche Reihenfolge."),
+        ("Warum stehen hier keine Preise?", "Preise bei Amazon ändern sich laufend. Damit du immer den aktuellen Preis siehst, verlinken wir direkt auf die Produktsuche."),
+        ("Wie werden die Ersparnisse berechnet?", "Mit typischen Nutzungsannahmen und deinem eingestellten Strompreis. Es sind „bis zu“-Werte – die echte Ersparnis hängt von deinen Geräten und Gewohnheiten ab."),
+    ]
+    inhalt = f"""
+<section class="seitenkopf zentriert">
+  <h1>Die besten Strom-Spar-Produkte</h1>
+  <p class="lead">Kleine Helfer, große Wirkung: Mit diesen Produkten sparst du jedes Jahr spürbar Strom – sortiert nach Wirkung.</p>
+</section>
+<a class="sparcheck-promo ripple" href="{s.link('werkzeuge/spar-check/')}">
+  <span class="sp-emoji" aria-hidden="true">🎯</span>
+  <span class="sp-text"><span class="overline">Persönlich</span><strong>Was passt zu deinem Haushalt?</strong><small>Der Spar-Check zeigt dir in 60 Sekunden, welche Maßnahmen bei dir am meisten bringen.</small></span>
+  <span class="sp-knopf">Starten{icon('chevron')}</span>
+</a>
+<section class="produkt-raster">{''.join(produkt_kachel(s, p) for p in SPAR_PRODUKTE)}</section>
+<p class="unterzeile zentriert">Ersparnis bei <span data-preis-anzeige>{zahl(ctx['preis'], 2)} €/kWh</span>, gerechnet mit typischen Werten. Links mit * sind Partnerlinks: Kaufst du darüber, erhalten wir eine kleine Provision – für dich ändert sich der Preis nicht.</p>
+{faq_html(faq)}
+"""
+    return s, layout(s, f"Die besten Strom-Spar-Produkte {ctx['jahr']}: Was sich wirklich lohnt",
+                     "Strom sparen mit den richtigen Helfern: Heizdecke, Sparduschkopf, LED, schaltbare Steckdosenleiste und mehr – mit Ersparnis pro Jahr.",
+                     inhalt, "werkzeuge", faq_jsonld(faq))
 
 
 # ---------------------------------------------------------------- Spar-Check, Tarife, E-Auto, Vergleich, Lexikon
@@ -1567,6 +1657,7 @@ def such_index(geraete):
         {"t": "Alle Werkzeuge", "u": "werkzeuge/", "e": "🧰", "k": "Seite"},
         {"t": "Strom-Wissen", "u": "wissen/", "e": "📚", "k": "Seite"},
         {"t": "Strom-Lexikon", "u": "wissen/lexikon/", "e": "🔤", "k": "Seite"},
+        {"t": "Die besten Strom-Spar-Produkte", "u": "spar-produkte/", "e": "🛍️", "k": "Seite", "d": "Heizdecke, Sparduschkopf, LED und mehr"},
     ]
     for key, (ziel, emoji, titel, text, _) in WERKZEUGE.items():
         if not ziel.startswith("#") and key != "haushalt":
@@ -1738,7 +1829,7 @@ def baue(ziel, strict=False, heute=None, cfg=None):
               quiz_seite(ctx, geraete), balkonkraftwerk_seite(ctx),
               werkzeuge_uebersicht(ctx), standby_seite(ctx), austausch_seite(ctx), zaehler_seite(ctx),
               spar_check_seite(ctx), tarif_seite(ctx), eauto_seite(ctx), vergleich_seite(ctx, geraete),
-              wissen_uebersicht(ctx), lexikon_seite(ctx)]
+              wissen_uebersicht(ctx), lexikon_seite(ctx), spar_produkte_seite(ctx)]
     seiten += [wissen_artikel(ctx, a) for a in ARTIKEL]
     seiten += [geraeteseite(ctx, g, geraete) for g in geraete]
     seiten += [impressum_seite(ctx), datenschutz_seite(ctx)]

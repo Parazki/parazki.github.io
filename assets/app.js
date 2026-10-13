@@ -37,7 +37,7 @@
   document.addEventListener("click", (ev) => {
     const link = ev.target.closest('a[href*="amazon.de"]');
     if (!link) return;
-    const karte = link.closest(".produkt");
+    const karte = link.closest(".produkt, .sp-produkt, .massnahme");
     zaehle("amazon-klick", { produkt: karte ? $("h3", karte).textContent : link.textContent, seite: location.pathname });
   });
 
@@ -162,7 +162,10 @@
 
   function aktualisiereAlles() {
     const p = preis();
-    $$("[data-euro-kwh]").forEach((el) => { el.textContent = euro(parseFloat(el.dataset.euroKwh) * p / (parseFloat(el.dataset.teiler) || 1)); });
+    $$("[data-euro-kwh]").forEach((el) => {
+      const v = parseFloat(el.dataset.euroKwh) * p / (parseFloat(el.dataset.teiler) || 1);
+      el.textContent = el.dataset.rund ? zahl(Math.round(v)) + " €" : euro(v);
+    });
     $$("[data-preis-anzeige]").forEach((el) => { el.textContent = zahl(p, 2) + " €/kWh"; });
     $$('form[data-rechner] input[name="preis"]').forEach((el) => { if (document.activeElement !== el) el.value = p; });
     rechner.forEach((r) => r.rechne());

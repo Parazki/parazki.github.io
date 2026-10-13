@@ -89,7 +89,7 @@ class Bauen(unittest.TestCase):
 
     def test_sitemap_vollstaendig(self):
         xml = (self.ziel / "sitemap.xml").read_text(encoding="utf-8")
-        self.assertEqual(xml.count("<url>"), len(self.geraete) + 15 + len(build.ARTIKEL))
+        self.assertEqual(xml.count("<url>"), len(self.geraete) + 16 + len(build.ARTIKEL))
         self.assertNotIn("impressum", xml)
 
     def test_faq_jsonld_gueltig(self):

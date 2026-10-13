@@ -1103,3 +1103,302 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 /* Gelesene Ratgeber */
 .artikel-karte { position: relative; }
 .artikel-karte.gelesen::after { content: "✓ Gelesen"; position: absolute; top: 14px; right: 14px; padding: 3px 10px; border-radius: 10px; font-size: .75rem; font-weight: 600; background: var(--primary-container); color: var(--on-primary-container); }
+
+/* ================================================================ APPLE-STIL: ruhig, klar, aufgeräumt */
+:root {
+  --surface: #f5f5f7; --surface-lowest: #ffffff; --surface-low: #ffffff; --surface-container: #ededf0;
+  --surface-high: #e8e8ed; --surface-highest: #e1e1e6;
+  --on-surface: #1d1d1f; --on-surface-variant: #6e6e73; --outline: #86868b; --outline-variant: #d2d2d7;
+  --primary: #248a3d; --on-primary: #ffffff; --primary-container: #e4f5e8; --on-primary-container: #0f4a1f;
+  --secondary-container: #e8e8ed; --on-secondary-container: #1d1d1f;
+  --tertiary: #c25400; --tertiary-container: #fff2e3; --on-tertiary-container: #5a2a00;
+  --error: #d70015; --error-container: #ffe9eb; --on-error-container: #6b0010;
+  --inverse-surface: #1d1d1f; --inverse-on-surface: #f5f5f7; --inverse-primary: #30d158;
+  --blau: #0071e3; --blau-hover: #0077ed;
+  --kachel: #ffffff; --kachel-2: #f5f5f7;
+  --glas: var(--kachel); --glas-stark: var(--kachel); --glas-glanz: none;
+  --glas-schatten: 0 1px 2px rgba(0, 0, 0, .04), 0 4px 18px -10px rgba(0, 0, 0, .10);
+  --glas-unschaerfe: none;
+  --leiste: rgba(255, 255, 255, .72);
+  --leiste-schatten: 0 1px 0 rgba(0, 0, 0, .05), 0 10px 30px -14px rgba(0, 0, 0, .22);
+  --schrift: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI Variable", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #000000; --surface-lowest: #1c1c1e; --surface-low: #1c1c1e; --surface-container: #2c2c2e;
+    --surface-high: #2c2c2e; --surface-highest: #3a3a3c;
+    --on-surface: #f5f5f7; --on-surface-variant: #a1a1a6; --outline: #8e8e93; --outline-variant: #38383a;
+    --primary: #30d158; --on-primary: #002a0f; --primary-container: #0f2e18; --on-primary-container: #a8f0bb;
+    --secondary-container: #3a3a3c; --on-secondary-container: #f5f5f7;
+    --tertiary: #ff9f0a; --tertiary-container: #33240f; --on-tertiary-container: #ffd8a6;
+    --error: #ff453a; --error-container: #3a1215; --on-error-container: #ffb4ae;
+    --inverse-surface: #f5f5f7; --inverse-on-surface: #1d1d1f; --inverse-primary: #248a3d;
+    --blau: #2997ff; --blau-hover: #4aa8ff;
+    --kachel: #1c1c1e; --kachel-2: #2c2c2e;
+    --glas-schatten: 0 0 0 1px rgba(255, 255, 255, .04);
+    --leiste: rgba(28, 28, 30, .72);
+    --leiste-schatten: 0 0 0 1px rgba(255, 255, 255, .06), 0 12px 32px -14px rgba(0, 0, 0, .8);
+  }
+}
+
+/* Grundlagen: etwas kleiner, Apple-Schrift, keine bunten Hintergrund-Flächen */
+html { font-size: 15px; }
+body { font-family: var(--schrift); font-size: 1rem; letter-spacing: -.01em; background: var(--surface); overflow-x: clip; padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+body::before { display: none; }
+.inhalt { overflow-x: visible; max-width: 980px; padding: 4px 18px 24px; }
+h1 { font-weight: 700; letter-spacing: -.035em; line-height: 1.07; }
+h2 { font-size: 1.6rem; font-weight: 700; letter-spacing: -.025em; line-height: 1.15; }
+h3 { font-weight: 600; letter-spacing: -.01em; }
+.lead { color: var(--on-surface-variant); font-size: 1.12rem; line-height: 1.5; }
+.lead strong { color: var(--on-surface); }
+.overline { color: var(--tertiary); font-weight: 600; letter-spacing: .02em; text-transform: none; font-size: .85rem; }
+.abschnitt { margin: 56px 0; }
+.unterzeile { color: var(--on-surface-variant); }
+.zentriert { text-align: center; }
+.seitenkopf.zentriert .lead { max-width: 36ch; margin-left: auto; margin-right: auto; }
+.seiten-icon { width: 60px; height: 60px; border-radius: 16px; font-size: 2rem; background: var(--kachel); box-shadow: var(--glas-schatten); animation: none; }
+
+/* Obere Leiste: schwebende, abgerundete Glas-Pille */
+.appbar, .appbar.gescrollt {
+  top: 8px; margin: 8px 10px 0; height: 52px; padding: 0 6px 0 8px; border-radius: 22px;
+  background-color: var(--leiste); background-image: none; box-shadow: var(--leiste-schatten);
+  -webkit-backdrop-filter: blur(22px) saturate(1.8); backdrop-filter: blur(22px) saturate(1.8);
+}
+.appbar-titel { font-size: 1.02rem; font-weight: 600; letter-spacing: -.02em; gap: 10px; }
+.appbar-titel .dimm { color: var(--on-surface-variant); font-weight: 500; }
+.logo { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(145deg, #2fbf5b, #1d8a3e); }
+.logo .ic { width: 20px; height: 20px; }
+.icon-knopf { width: 40px; height: 40px; color: var(--on-surface); }
+.icon-knopf .ic { width: 21px; height: 21px; }
+.profil-knopf .avatar { width: 30px; height: 30px; font-size: .85rem; background: linear-gradient(145deg, #2fbf5b, #1d8a3e); }
+.lesefortschritt { top: 62px; left: 26px; right: 26px; height: 3px; border-radius: 3px; overflow: hidden; }
+
+/* Untere Navigation: kleinere, zentrierte Glas-Pille */
+.navbar {
+  left: 50%; right: auto; transform: translateX(-50%); width: min(440px, calc(100% - 24px));
+  bottom: calc(10px + env(safe-area-inset-bottom)); height: 58px; padding: 6px; border-radius: 26px;
+  background-color: var(--leiste); background-image: none; box-shadow: var(--leiste-schatten);
+  -webkit-backdrop-filter: blur(22px) saturate(1.8); backdrop-filter: blur(22px) saturate(1.8);
+}
+.nav-item { gap: 2px; font-size: .66rem; font-weight: 600; letter-spacing: 0; color: var(--on-surface-variant); }
+.nav-pille { width: 46px; height: 26px; border-radius: 13px; }
+.nav-pille .ic { width: 20px; height: 20px; }
+.nav-item[aria-current="page"] { color: var(--primary); }
+.nav-item[aria-current="page"] .nav-pille { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary); box-shadow: none; }
+.fab, .snackbar { bottom: calc(80px + env(safe-area-inset-bottom)); }
+@media (min-width: 900px) {
+  body { padding-left: var(--rail-breite); padding-bottom: 0; }
+  .navbar { left: 12px; transform: none; top: 74px; bottom: auto; width: 72px; height: auto; padding: 12px 0; border-radius: 26px; gap: 8px; }
+  .fab, .snackbar { bottom: 24px; }
+}
+
+/* Knöpfe: Apple-Pillen */
+.knopf { height: 36px; padding: 0 18px; border-radius: 980px; font-size: .92rem; font-weight: 500; letter-spacing: -.01em; }
+.knopf:active { border-radius: 980px; transform: scale(.97); }
+.knopf-gross { height: 44px; padding: 0 24px; font-size: 1rem; }
+.knopf-gefuellt { background: var(--primary); color: var(--on-primary); box-shadow: none; }
+.knopf-gefuellt:hover { filter: brightness(1.06); box-shadow: none; }
+.knopf-tonal { background: var(--surface-container); color: var(--on-surface); box-shadow: none; }
+.knopf-text { color: var(--blau); }
+.knopf-text:hover { background: transparent; text-decoration: underline; }
+.knopf-kaufen { background: var(--blau); color: #fff; }
+.knopf-kaufen:hover { background: var(--blau-hover); }
+a { color: var(--blau); }
+
+/* Kacheln: weiß und flach, ohne Glas-Effekte */
+:is(.rechner, .story, .sc-spiel, .quiz, .rangliste, .diagramm-karte, .karte-flach, .text-karte, .faq-eintrag, .hinweis-karte, .produkt,
+    .artikel-karte, .fakt-karte, .vg-spalte, .kategorie-karte, .mehr, .massnahme, .geraet-karte, .hh-eintrag, .lex-eintrag, .werkzeug-karte,
+    .mein-bereich, .personalisieren-karte, .install-karte, .tipp-karte, .kosten-balken, .ringe-karte, .mb-kachel, .empfehlung, .abzeichen, .persoenlich) {
+  background-color: var(--kachel); background-image: none; border: 0; box-shadow: var(--glas-schatten);
+  -webkit-backdrop-filter: none; backdrop-filter: none; color: var(--on-surface);
+}
+.rechner { border-radius: 24px; padding: 6px; }
+.werkzeug-karte, .kategorie-karte, .artikel-karte, .geraet-karte, .fakt-karte { border-radius: 20px; }
+.werkzeug-karte { min-height: 132px; }
+.werkzeug-karte small, .kategorie-karte small { color: var(--on-surface-variant); opacity: 1; }
+.wk-primaer, .wk-sekundaer, .wk-tertiaer { background-color: var(--kachel); color: var(--on-surface); }
+.wk-pfeil { color: var(--on-surface-variant); }
+.ringe-karte, .mb-kachel, .abzeichen, .empfehlung { background-color: var(--kachel-2); box-shadow: none; }
+.mein-bereich .mb-kachel, .mein-bereich .empfehlung, .mein-bereich .abzeichen, .mein-bereich .ringe-karte { background-color: var(--surface); }
+.chip { background: var(--kachel); border: 0; box-shadow: var(--glas-schatten); color: var(--on-surface); }
+.filter-chip[aria-pressed="true"] { background: var(--on-surface); color: var(--surface); }
+.emoji-kreis, .eh-emoji, .produkt-emoji, .massnahme-emoji { background: var(--kachel-2); }
+.hinweis-karte { color: var(--on-surface-variant); }
+.tipp-karte { color: var(--on-surface); }
+.tipp-kopf .ic { color: var(--tertiary); }
+.persoenlich { border-left: 4px solid var(--primary); }
+
+/* Ergebnis: große grüne Zahl auf ruhigem Grund (statt bunter Fläche) */
+.ergebnis-held, .ergebnis-held.guthaben, .ergebnis-solar {
+  background-color: var(--surface); background-image: none; color: var(--on-surface); box-shadow: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none; border-radius: 20px;
+}
+.eh-label { color: var(--on-surface-variant); font-weight: 500; }
+.eh-wert { color: var(--primary); font-weight: 700; letter-spacing: -.04em; font-size: clamp(2.4rem, 10vw, 3.4rem); }
+.ergebnis-solar .eh-wert { color: var(--tertiary); }
+.ergebnis-held.nachzahlung { background-color: var(--error-container); color: var(--on-error-container); }
+.ergebnis-held.nachzahlung .eh-wert { color: var(--error); }
+.eh-chip { background: var(--kachel); color: var(--on-surface); }
+.ergebnis-held::after { display: none; }
+.balken { background: var(--surface-highest); }
+
+/* Eingaben im Apple-Stil */
+.feld-rahmen { height: 46px; border: 0; border-radius: 12px; background-color: var(--surface); box-shadow: inset 0 0 0 1px var(--outline-variant); }
+.feld-rahmen:focus-within { box-shadow: inset 0 0 0 2px var(--blau); }
+.feld-rahmen input { font-size: 1.02rem; }
+.suchleiste { height: 46px; background-color: var(--kachel); box-shadow: var(--glas-schatten); border-radius: 14px; }
+.segmente { border: 0; background: var(--surface-container); border-radius: 11px; padding: 2px; overflow: visible; }
+.segmente label + label { border-left: 0; }
+.segmente span { height: 30px; border-radius: 9px; font-size: .86rem; color: var(--on-surface); transition: background-color .2s, box-shadow .2s; }
+.segmente input:checked + span { background: var(--kachel); color: var(--on-surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .14), 0 0 0 .5px rgba(0, 0, 0, .04); }
+@media (prefers-color-scheme: dark) { .segmente input:checked + span { background: #636366; } }
+.seg-haken, .chip-haken { display: none !important; }
+.personen-zeile .segmente { background: var(--surface-container); border-color: transparent; }
+.personen-zeile .segmente span { color: var(--on-surface); }
+.vorlagen-chips span { border: 0; background: var(--surface-container); border-radius: 980px; }
+.vorlagen-chips input:checked + span { background: var(--on-surface); color: var(--surface); }
+.schalter { background: var(--surface); box-shadow: none; }
+.schalter input { width: 50px; height: 30px; border: 0; background: var(--surface-highest); }
+.schalter input::before { left: 2px; width: 26px; height: 26px; background: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, .2); }
+.schalter input:checked { background: #34c759; }
+.schalter input:checked::before { left: 22px; width: 26px; height: 26px; background: #fff; }
+
+/* Schieberegler wie bei Apple: dünne Spur, runder Knopf */
+.schieber { height: 32px; }
+.schieber-voll { margin-top: -4px; }
+.schieber::-webkit-slider-runnable-track { height: 5px; border-radius: 3px; background: linear-gradient(to right, var(--primary) 0 var(--wert), var(--surface-highest) var(--wert) 100%); }
+.schieber::-moz-range-track { height: 5px; border-radius: 3px; background: var(--surface-highest); }
+.schieber::-moz-range-progress { height: 5px; border-radius: 3px; background: var(--primary); }
+.schieber::-webkit-slider-thumb { width: 26px; height: 26px; margin-top: -10.5px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .25), 0 0 0 .5px rgba(0, 0, 0, .06); }
+.schieber::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .25); }
+.schieber:active::-webkit-slider-thumb { width: 30px; height: 30px; margin-top: -12.5px; }
+.mehr .schieber::-webkit-slider-thumb { box-shadow: 0 1px 4px rgba(0, 0, 0, .25); }
+.mehr { background-color: var(--surface); box-shadow: none; }
+
+/* FAQ als klare Liste */
+.faq { background: var(--kachel); border-radius: 20px; box-shadow: var(--glas-schatten); gap: 0; overflow: hidden; }
+.faq-eintrag { border-radius: 0; box-shadow: none; background: transparent; }
+.faq-eintrag + .faq-eintrag { border-top: 1px solid var(--outline-variant); }
+
+/* Startseite: zentrierter Apple-Einstieg */
+.held { background: none !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; text-align: center; padding: 40px 4px 8px; border-radius: 0; overflow: visible; }
+.held::before, .held::after { display: none; }
+.held-marke { background: var(--kachel); box-shadow: var(--glas-schatten); color: var(--on-surface-variant); margin: 0 auto 18px; }
+.held-marke .ic { color: #ff9f0a; }
+.held h1 { font-size: clamp(2.5rem, 10vw, 4.4rem); margin: 0 auto 14px; }
+.held-verlauf { background: linear-gradient(90deg, #30a14e, #2fbf5b 40%, #ff9f0a); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.held .lead { max-width: 34ch; margin: 0 auto 22px; }
+.held-aktionen { display: flex; justify-content: center; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 22px; }
+.held .suchleiste { max-width: 520px; margin: 0 auto 14px; padding: 0 16px; background-color: var(--kachel); box-shadow: var(--glas-schatten); }
+.held .ticker { background: transparent; color: var(--on-surface-variant); font-weight: 500; }
+.galerie { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin: 18px -18px 0; padding: 6px 18px 14px; scroll-padding-inline: 18px; }
+.galerie::-webkit-scrollbar { display: none; }
+@media (min-width: 900px) { .galerie { justify-content: center; } }
+.galerie-teil {
+  flex: 0 0 132px; scroll-snap-align: start; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 18px 10px 16px;
+  border-radius: 22px; background: var(--kachel); box-shadow: var(--glas-schatten); color: var(--on-surface); text-decoration: none;
+  animation: galerie-rein .8s var(--kurve) both; animation-delay: calc(var(--i) * 80ms + 200ms); transition: transform .3s var(--kurve);
+}
+.galerie-teil:hover { transform: translateY(-4px); }
+@keyframes galerie-rein { from { opacity: 0; transform: translateY(24px) scale(.95); } }
+.gt-bild { font-size: 3.4rem; line-height: 1.15; filter: drop-shadow(0 10px 12px rgba(0, 0, 0, .14)); animation: schweben-klein 6s ease-in-out infinite; animation-delay: calc(var(--i) * -1s); }
+.galerie-teil b { font-weight: 600; font-size: .92rem; margin-top: 6px; }
+.galerie-teil small { color: var(--on-surface-variant); font-size: .8rem; }
+
+/* Spar-Check-Hervorhebung: dunkle Apple-Produktkachel */
+.sparcheck-promo { background: #1d1d1f; color: #f5f5f7; border-radius: 24px; box-shadow: 0 20px 40px -24px rgba(0, 0, 0, .55); padding: 22px; }
+.sparcheck-promo::before, .sparcheck-promo::after { display: none; }
+.sp-text .overline { color: #ff9f0a; }
+.sp-text strong { font-size: 1.3rem; letter-spacing: -.02em; }
+.sp-text small { color: #a1a1a6; opacity: 1; }
+.sp-knopf { background: #f5f5f7; color: #1d1d1f; }
+@media (prefers-color-scheme: dark) { .sparcheck-promo { background: #1c1c1e; box-shadow: 0 0 0 1px rgba(255, 255, 255, .06); } }
+
+/* Spar-Produkte */
+.produkt-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; margin: 18px 0; }
+.sp-produkt { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 26px 18px 20px; border-radius: 24px; background: var(--kachel); box-shadow: var(--glas-schatten); }
+.produkt-karussell > .sp-produkt { flex: 0 0 min(78%, 270px); }
+.spp-bild { display: grid; place-items: center; width: 108px; height: 108px; margin-bottom: 6px; border-radius: 28px; font-size: 3.6rem; background: var(--surface); filter: drop-shadow(0 12px 14px rgba(0, 0, 0, .10)); }
+.sp-produkt h3 { font-size: 1.12rem; margin: 2px 0 0; }
+.spp-nutzen { color: var(--on-surface-variant); font-size: .92rem; margin: 0; line-height: 1.45; }
+.spp-spart { margin: 6px 0 4px; font-size: .92rem; color: var(--on-surface-variant); }
+.spp-spart b { color: var(--primary); font-weight: 700; font-size: 1.05rem; }
+.spp-aktionen { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: auto; padding-top: 8px; width: 100%; }
+.spp-aktionen .knopf-kaufen { width: 100%; max-width: 240px; }
+.spp-badge { position: absolute; top: 14px; left: 14px; padding: 3px 10px; border-radius: 980px; font-size: .74rem; font-weight: 600; background: color-mix(in srgb, #ff9f0a 16%, transparent); color: var(--tertiary); }
+
+/* Produktempfehlung auf Geräteseiten */
+.empfehlung-titel { margin: 22px 4px 6px; font-weight: 600; color: var(--tertiary); font-size: .85rem; }
+.produkt { padding: 18px; border-radius: 22px; gap: 16px; }
+.produkt-emoji { width: 64px; height: 64px; border-radius: 18px; font-size: 2.2rem; }
+.produkt .knopf { background: var(--blau); color: #fff; }
+.produkt .knopf .ic { display: none; }
+
+/* Rangliste ruhiger */
+.rangliste { border-radius: 20px; }
+.rangliste li + li .rang-zeile { border-top: 1px solid var(--outline-variant); }
+.rang-balken span { background: var(--primary); }
+
+/* ------------------------------------------------ Haus-Szene als schwarze Keynote-Bühne (volle Breite) */
+.story { margin: 64px calc(50% - 50vw); width: 100vw; border-radius: 0; background: #000; color: #f5f5f7; box-shadow: none; }
+@media (min-width: 900px) { .story { margin-left: calc(50% - 50vw + var(--rail-breite) / 2); width: calc(100vw - var(--rail-breite)); } }
+.story .overline { color: #ff9f0a; }
+.story-schritt h2 { color: #f5f5f7; font-size: clamp(1.9rem, 7.5vw, 3.2rem); font-weight: 700; letter-spacing: -.04em; }
+.story-schritt p { color: #a1a1a6; font-size: 1.08rem; }
+.story-schritt a { color: #2997ff; }
+.story-punkte i { background: #3a3a3c; }
+.story-punkte i.aktiv { background: #f5f5f7; }
+.story.lebendig .story-buehne { max-width: 1000px; margin: 0 auto; }
+.story-bild svg { max-width: 680px; }
+/* Linien zeichnen sich beim Scrollen selbst */
+.haus-svg .linie { fill: none; stroke: #f5f5f7; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: max(0, calc(1 - var(--p, 1) * 4.4)); }
+.story:not(.lebendig) .haus-svg .linie { stroke-dashoffset: 0; }
+.haus-svg .boden { stroke: #3a3a3c; }
+.haus-svg .dachflaeche { fill: #1c1c1e; opacity: 0; transition: opacity .8s, fill .8s; }
+.story[data-aktiv] .haus-svg .dachflaeche { opacity: 1; }
+.story[data-aktiv="3"] .haus-svg .dachflaeche, .story:not(.lebendig) .haus-svg .dachflaeche { fill: url(#dachlicht); opacity: .9; filter: drop-shadow(0 0 18px rgba(255, 179, 64, .55)); }
+.haus-svg .raum { fill: #1c1c1e; transition: fill .8s var(--kurve), filter .8s; }
+.story:is([data-aktiv="1"], [data-aktiv="2"], [data-aktiv="3"]) .haus-svg .r1,
+.story:is([data-aktiv="2"], [data-aktiv="3"]) .haus-svg :is(.r2, .r3, .r4),
+.story:not(.lebendig) .haus-svg .raum { fill: url(#raumlicht); filter: drop-shadow(0 0 14px rgba(255, 196, 80, .65)); }
+.haus-svg .raum-emoji { font-size: 22px; opacity: .25; }
+.haus-svg .tuer { stroke: #8e8e93; }
+.stern { fill: #f5f5f7; opacity: .7; animation: funkeln 3s ease-in-out infinite; animation-delay: var(--d); }
+@keyframes funkeln { 50% { opacity: .15; } }
+.mond { fill: #f5f5f7; opacity: .9; filter: drop-shadow(0 0 10px rgba(245, 245, 247, .6)); }
+.story[data-aktiv="3"] .himmel-sterne { opacity: .35; transition: opacity 1s; }
+.haus-svg .leitung { stroke: #3a3a3c; stroke-width: 3; stroke-dasharray: none; }
+.story:is([data-aktiv="1"], [data-aktiv="2"], [data-aktiv="3"]) .haus-svg .leitung { stroke: #5a4410; animation: none; }
+.partikel { fill: #ffd60a; opacity: 0; filter: drop-shadow(0 0 6px #ffd60a); transition: opacity .5s; }
+.story:is([data-aktiv="1"], [data-aktiv="2"], [data-aktiv="3"]) .partikel { opacity: 1; }
+.haus-svg .zaehler-box rect { fill: #1c1c1e; stroke: #3a3a3c; }
+.haus-svg .zaehler-zahl { fill: #30d158; font-size: 16px; }
+.haus-svg .zaehler-einheit { fill: #a1a1a6; }
+
+/* Große Aussage */
+.statement { padding: 40px 8px 24px; }
+.statement-zeile { font-weight: 700; letter-spacing: -.045em; font-size: clamp(2.6rem, 12vw, 5.2rem); }
+.statement-verlauf { background: linear-gradient(90deg, #30a14e, #2fbf5b 45%, #ff9f0a); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* Personalisierung ruhiger */
+.mein-bereich { border-radius: 26px; }
+.mb-gruss { background: none; color: var(--on-surface); -webkit-background-clip: border-box; background-clip: border-box; }
+.abzeichen.verdient { background-image: none; }
+
+/* Fußbereich wie bei Apple: klein, grau, ruhig */
+.fuss { font-size: .78rem; border-top: 1px solid var(--outline-variant); }
+.fuss-links { gap: 6px 18px; }
+.fuss-links a { background: none; padding: 2px 0; border-radius: 0; color: var(--on-surface-variant); }
+.fuss-links a:hover { background: none; color: var(--on-surface); text-decoration: underline; }
+
+/* Dialoge & Suche: Glas nur hier */
+.dialog { background-color: color-mix(in srgb, var(--kachel) 86%, transparent); border-radius: 22px; -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8); }
+.spotlight-panel { background-color: color-mix(in srgb, var(--kachel) 86%, transparent); }
+.snackbar { border-radius: 14px; background-color: color-mix(in srgb, var(--inverse-surface) 90%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.fab { background-color: var(--primary); color: var(--on-primary); border-radius: 980px; height: 48px; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.fab:active { border-radius: 980px; }
+/* Haus-Szene: Flächen erscheinen erst, wenn die Linien gezeichnet sind */
+.story.lebendig .haus-svg .dachflaeche { opacity: max(0, min(1, calc(var(--p, 1) * 6 - 1.1))); }
+.story.lebendig .haus-svg .raum { opacity: max(0, min(1, calc(var(--p, 1) * 7 - 1.2))); }
+.story.lebendig[data-aktiv="0"] .haus-svg .raum-emoji { opacity: max(0, min(.3, calc(var(--p, 1) * 3 - .45))); }
+.story.lebendig .haus-svg .zaehler-box { opacity: max(0, min(1, calc(var(--p, 1) * 6 - .9))); }
