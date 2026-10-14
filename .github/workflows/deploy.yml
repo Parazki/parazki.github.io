@@ -60,6 +60,9 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # GitHub Pages braucht manchmal deutlich länger als üblich – 30 statt 10 Minuten warten, bevor abgebrochen wird
+          timeout: 1800000
 
       # Bing, Ecosia, DuckDuckGo & Co. sofort über neue und geänderte Seiten informieren (Google nutzt IndexNow nicht)
       - uses: actions/checkout@v4
