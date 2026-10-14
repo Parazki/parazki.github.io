@@ -259,10 +259,14 @@ class Bauen(unittest.TestCase):
         self.assertLess(start.index('class="story-intro"'), start.index('class="story-bild"'), "Text muss vor dem Bild stehen")
         self.assertIn('class="bento"', start)
         self.assertIn("data-leuchttext", start)
-        haus = start.split('class="hs-haus"')[1].split("</svg>")[0]
-        self.assertEqual(haus.count('class="hs-geraet"'), 5)
-        self.assertIn('data-story-zaehler="2500"', haus)
-        self.assertEqual(start.count('class="hs-himmel"') + start.count('class="hs-fluss"'), 2)
+        licht = start.split('class="hs-licht"')[1].split("</svg>")[0]
+        self.assertEqual(licht.count("<image "), 5)  # Kühlschrank, Router, Fernseher, Waschmaschine, Laptop
+        self.assertIn('data-story-zaehler="2500"', licht)
+        kulisse = start.split('class="hs-kulisse"')[1].split("</svg>")[0]
+        self.assertGreater(kulisse.count("<path "), 300, "Dachziegel, Gras und Zaun fehlen")
+        self.assertNotIn("hs-leitung", start)  # keine Linie mehr zwischen den Zimmern
+        for ebene in ("hs-himmel", "hs-kulisse", "hs-skizze", "hs-licht", "hs-fluss"):
+            self.assertEqual(start.count(f'class="{ebene}"'), 1, ebene)
 
     def test_google_eintrag(self):
         start = (self.ziel / "index.html").read_text(encoding="utf-8")

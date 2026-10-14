@@ -1097,102 +1097,269 @@ def _quad(ecken, u0, v0, u1, v1):
                                                      _quad_punkt(ecken, u1, v1), _quad_punkt(ecken, u0, v1)))
 
 
-def haus_story(s, ctx):
-    """Haus-Szene: Alles hängt stufenlos am Scroll-Fortschritt --p (0…1), ohne teure Filter.
+class _Zufall:
+    """Kleiner, reproduzierbarer Zufall (gleiche Grafik bei jedem Bau)."""
 
-    Ebenen mit gleichem Koordinatensystem: Himmel (Sterne, Mond, Sternschnuppe), Haus (zeichnet sich, Räume leuchten
-    nacheinander auf, Zähler läuft hoch) und Leben (Strom, Rauch, laufende Geräte). --s = Fortschritt, ab dem ein Raum Strom bekommt.
+    def __init__(self, saat):
+        self.x = saat
+
+    def __call__(self):
+        self.x = (self.x * 1103515245 + 12345) % 2147483648
+        return self.x / 2147483648
+
+    def wahl(self, folge):
+        return folge[int(self() * len(folge)) % len(folge)]
+
+
+def _kreis_reihe(z, punkte, farben, r_von, r_bis):
+    return "".join(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r_von + z() * (r_bis - r_von):.1f}" fill="{z.wahl(farben)}"/>' for x, y in punkte)
+
+
+def haus_story(s, ctx):
+    """Haus-Szene in vier Ebenen – bewegte Teile getrennt von den vielen Details, damit Scrollen flüssig bleibt:
+
+    1. Himmel (statisch, nur Sterne funkeln)   2. Kulisse (Haus, Dach, Garten – einmal gezeichnet, blendet nur ein)
+    3. Skizze (Umrisse zeichnen sich zu Beginn)  4. Licht (hängt an --p: Zimmer, Laternen, Zähler)  5. Leben (Animationen)
+    --s = Fortschritt, ab dem ein Zimmer Strom bekommt.
     """
     gesamt = HAUSHALT_SCHNITT[2]
     b = lambda key: s.link(f"assets/bilder/{key}.svg")
-    sterne = "".join(f'<circle class="hs-stern" cx="{x}" cy="{y}" r="{r}" style="--d:{d}s"/>'
-                     for x, y, r, d in ((30, 30, 1.2, 0), (78, 52, .9, 1.1), (120, 22, 1.1, .4), (240, 34, 1, 1.6), (300, 18, 1.3, .8),
-                                        (352, 86, .9, 2.1), (384, 24, 1.1, 1.3), (200, 12, .8, .2), (160, 40, .7, 2.6), (20, 92, 1, .6),
-                                        (276, 52, .8, 1.9), (60, 12, .9, 2.3), (100, 70, .6, 1.4), (218, 58, .6, .9), (392, 60, .7, 2.8)))
-    linien = "".join(f'<path class="hs-linie{" " + k if k else ""}" pathLength="1" style="--a:{a};--l:{l}" d="{d}"/>' for k, a, l, d in (
-        ("hs-boden", 0, .07, "M10 262 H390"),
-        ("", .03, .09, "M72 262 V146 H288 V262"),
-        ("", .07, .08, "M54 150 L180 64 L306 150"),
-        ("", .12, .05, "M250 110 V80 H272 V125"),
-        ("hs-tuer", .14, .05, "M164 262 V216 Q180 206 196 216 V262"),
-    ))
-    raeume = "".join(f'''<g class="hs-raum" style="--s:{start}">
-    <rect class="hs-schein" x="{x - 16}" y="{y - 16}" width="{w + 32}" height="{h + 32}" rx="24"/>
-    <rect class="hs-grund" x="{x}" y="{y}" width="{w}" height="{h}" rx="5"/>
-    <rect class="hs-licht" x="{x}" y="{y}" width="{w}" height="{h}" rx="5"/>
-    <image class="hs-geraet" href="{b(bild)}" x="{bx}" y="{by}" width="{g}" height="{g}"/>
-    <path class="hs-spiegelung" d="M{x + 4} {y + h - 4} L{x + 18} {y + 4} H{x + 26} L{x + 12} {y + h - 4} Z"/>
-    <rect class="hs-rahmen" x="{x}" y="{y}" width="{w}" height="{h}" rx="5"/>
-    <path class="hs-sprosse" d="M{x} {y + 11} H{x + w}"/>
-    <rect class="hs-bank" x="{x - 4}" y="{y + h}" width="{w + 8}" height="3" rx="1.5"/>
-  </g>''' for x, y, w, h, bild, bx, by, g, start in (
-        (86, 158, 74, 42, "kuehlschrank", 104, 160, 38, .30),
-        (200, 158, 74, 42, "fernseher", 218, 160, 38, .52),
-        (86, 212, 66, 42, "waschmaschine", 100, 214, 38, .58),
-        (208, 212, 66, 42, "laptop", 212, 214, 38, .64),
-    ))
-    kabel = "M353 206 V246 H288"
-    punkte = "".join(f'<g class="hs-punkt"><circle r="6.5" class="hs-punkt-hof"/><circle r="2.8"/>'
-                     f'<animateMotion dur="1.6s" begin="{t}s" repeatCount="indefinite" path="{kabel}"/></g>' for t in (0, .4, .8, 1.2))
-    rauch = "".join(f'<circle class="hs-rauch" cx="261" cy="74" r="4" style="--d:{d}s"/>' for d in (0, 1.3, 2.6))
-    baum = ('<rect class="hs-stamm" x="37" y="214" width="6" height="48" rx="2"/>'
-            + "".join(f'<ellipse class="hs-blatt" cx="{x}" cy="{y}" rx="{rx}" ry="{ry}"/>' for x, y, rx, ry in
-                      ((40, 196, 24, 22), (26, 210, 15, 13), (55, 208, 15, 14), (40, 180, 17, 15))))
-    busch = "".join(f'<ellipse class="hs-busch" cx="{x}" cy="{y}" rx="{rx}" ry="{ry}"/>' for x, y, rx, ry in
-                    ((304, 255, 14, 9), (322, 257, 12, 7), (78, 257, 9, 6), (150, 258, 10, 5)))
-    bild = f'''<div class="haus-bild">
-<svg class="hs-himmel" viewBox="0 0 400 290" aria-hidden="true">
+    z = _Zufall(7)
+
+    # ---------- Himmel: Sterne, Mond, Schleierwolken, Hügel am Horizont
+    sterne = []
+    for i in range(78):
+        x, y = z() * 400, z() * 200
+        if (x - 352) ** 2 + (y - 40) ** 2 < 900:
+            continue
+        r = .35 + z() ** 3 * 1.1
+        klasse = ' class="hs-funkeln"' if i % 4 == 0 else ""
+        sterne.append(f'<circle{klasse} cx="{x:.1f}" cy="{y:.1f}" r="{r:.2f}" style="--d:{z() * 4:.1f}s" opacity="{.35 + z() * .6:.2f}"/>')
+    huegel = ('<path d="M0 236 Q40 222 86 230 T170 226 T262 232 T340 222 T400 230 V270 H0 Z" fill="#0c1326"/>'
+              '<path d="M0 248 Q30 238 64 244 T140 240 T214 246 T300 238 T400 246 V270 H0 Z" fill="#0a1020"/>')
+    baumreihe = "".join(f'<ellipse cx="{x:.0f}" cy="{250 - h / 2:.1f}" rx="{w:.1f}" ry="{h:.1f}" fill="#080d1a"/>'
+                        for x, w, h in ((8 + i * 13 + z() * 6, 5 + z() * 4, 7 + z() * 9) for i in range(31)))
+    himmel = f'''<svg class="hs-himmel" viewBox="0 0 400 290" aria-hidden="true">
   <defs>
-    <radialGradient id="hs-mondschein"><stop offset="0" stop-color="#f5f5f7" stop-opacity=".35"/><stop offset="1" stop-color="#f5f5f7" stop-opacity="0"/></radialGradient>
-    <radialGradient id="hs-horizont" cx="50%" cy="100%" r="100%"><stop offset="0" stop-color="#ff9f0a" stop-opacity=".26"/><stop offset=".7" stop-color="#ff9f0a" stop-opacity=".06"/><stop offset="1" stop-color="#ff9f0a" stop-opacity="0"/></radialGradient>
+    <linearGradient id="hs-nacht" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#03050c"/><stop offset=".6" stop-color="#0a1124"/><stop offset="1" stop-color="#18203d"/></linearGradient>
+    <radialGradient id="hs-mondschein"><stop offset="0" stop-color="#e8ecff" stop-opacity=".32"/><stop offset="1" stop-color="#e8ecff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="hs-mond" cx="40%" cy="38%" r="65%"><stop offset="0" stop-color="#fbfaf3"/><stop offset="1" stop-color="#cfcbbb"/></radialGradient>
     <linearGradient id="hs-schnuppe" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff"/></linearGradient>
   </defs>
-  <ellipse class="hs-horizont" cx="190" cy="262" rx="185" ry="110" fill="url(#hs-horizont)"/>
-  <g class="hs-sterne">{sterne}</g>
-  <path class="hs-schnuppe" pathLength="1" d="M70 20 L150 52" stroke="url(#hs-schnuppe)"/>
-  <circle cx="342" cy="44" r="34" fill="url(#hs-mondschein)"/>
-  <circle class="hs-mond" cx="342" cy="44" r="13"/>
-  <circle class="hs-krater" cx="337" cy="40" r="2.6"/><circle class="hs-krater" cx="346" cy="49" r="1.8"/><circle class="hs-krater" cx="347" cy="38" r="1.2"/>
-</svg>
-<svg class="hs-haus" viewBox="0 0 400 290" aria-hidden="true">
+  <rect width="400" height="290" fill="url(#hs-nacht)"/>
+  <g class="hs-sterne" fill="#f5f5f7">{"".join(sterne)}</g>
+  <path class="hs-schnuppe" pathLength="1" d="M60 22 L150 56" stroke="url(#hs-schnuppe)"/>
+  <ellipse cx="120" cy="96" rx="90" ry="5" fill="#8e9ac4" opacity=".05"/><ellipse cx="270" cy="70" rx="70" ry="4" fill="#8e9ac4" opacity=".05"/>
+  <circle cx="352" cy="40" r="40" fill="url(#hs-mondschein)"/>
+  <circle cx="352" cy="40" r="14" fill="url(#hs-mond)"/>
+  <g fill="#b9b5a5" opacity=".55"><circle cx="347" cy="36" r="2.8"/><circle cx="357" cy="45" r="2"/><circle cx="356" cy="33" r="1.3"/><circle cx="345" cy="45" r="1.1"/><circle cx="361" cy="39" r=".9"/></g>
+  {huegel}{baumreihe}
+</svg>'''
+
+    # ---------- Kulisse: Dach (einzelne Ziegel), Gauben, Kamin, Fassade, Fenster, Tür, Garten, Zaun, Zähler-Säule
+    dach_ecken = ((84, 56), (262, 56), (316, 134), (30, 134))   # oben links, oben rechts, unten rechts, unten links
+    ziegelfarben = ("#343a47", "#2f3541", "#383f4d", "#3b4250", "#30363f", "#363d4a", "#2c323d")
+    ziegel = []
+    for reihe in range(13):
+        y0 = 56 + reihe * 6
+        t = (y0 + 3 - 56) / 78
+        links, rechts = 84 - 54 * t, 262 + 54 * t
+        x = links - (5 if reihe % 2 else 0) - 2
+        while x < rechts + 2:
+            ziegel.append(f'<path d="M{x:.1f} {y0} h9.4 v4.2 q0 1.8 -1.8 1.8 h-5.8 q-1.8 0 -1.8 -1.8 z" fill="{z.wahl(ziegelfarben)}"/>')
+            x += 10
+        ziegel.append(f'<rect x="20" y="{y0 + 5.4}" width="310" height=".7" fill="#000" opacity=".35"/>')
+    dach_punkte = " ".join(f"{x},{y}" for x, y in dach_ecken)
+
+    def gaube(cx):
+        mini = "".join(f'<path d="M{x:.1f} {y} h5 v2.6 q0 1 -1 1 h-3 q-1 0 -1 -1 z" fill="{z.wahl(ziegelfarben)}"/>'
+                       for y in (82, 85.5, 89) for x in [cx - 18 + i * 5 + (2.5 if int(y) % 2 else 0) for i in range(8)]
+                       if abs(x + 2.5 - cx) < (y - 78) * 1.15)
+        return (f'<rect x="{cx - 14}" y="92" width="28" height="24" fill="#2a2f3c"/>'
+                f'<rect x="{cx - 14}" y="92" width="28" height="24" fill="url(#hs-bretter)"/>'
+                f'<rect x="{cx - 10}" y="96" width="20" height="17" rx="1.5" fill="#b9b2a3"/>'
+                f'<rect x="{cx - 9}" y="97" width="18" height="15" fill="url(#hs-glas)"/>'
+                f'<path d="M{cx - 9} 109 L{cx + 3} 97 H{cx + 7} L{cx - 5} 109 Z" fill="#a9b8d6" opacity=".12"/>'
+                f'<polygon points="{cx - 19},94 {cx},77 {cx + 19},94" fill="#2b313c"/>'
+                f'<clipPath id="hs-gaube-{cx}"><polygon points="{cx - 18},93.5 {cx},78 {cx + 18},93.5"/></clipPath>'
+                f'<g clip-path="url(#hs-gaube-{cx})">{mini}</g>'
+                f'<path d="M{cx - 20} 95 L{cx} 76.5 L{cx + 20} 95" fill="none" stroke="#4a5160" stroke-width="2" stroke-linejoin="round"/>')
+
+    kamin_steine = "".join(f'<rect x="{238 + (k * 6) - (3 if r % 2 else 0):.1f}" y="{36 + r * 3.4:.1f}" width="5.4" height="2.8" fill="{z.wahl(("#5a3328", "#4d2b22", "#633a2d", "#47271f"))}"/>'
+                           for r in range(11) for k in range(4) if 236 < 238 + k * 6 - (3 if r % 2 else 0) < 254)
+    sockel = []
+    for reihe, y in enumerate((252.5, 257.3, 262.1)):
+        x = 46 - (4 if reihe % 2 else 0)
+        while x < 300:
+            w = 8 + z() * 6
+            sockel.append(f'<rect x="{max(46, x):.1f}" y="{y}" width="{min(w, 300 - max(46, x)) - .6:.1f}" height="4.2" rx=".8" fill="{z.wahl(("#3a3f4b", "#343844", "#41464f", "#3d424d", "#363b46"))}"/>')
+            x += w
+
+    def fensterrahmen(x, y, w, h, laeden):
+        teile = [f'<rect x="{x - 3}" y="{y - 5}" width="{w + 6}" height="4" rx="1" fill="#3c4150"/>',          # Sturz
+                 f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="2" fill="#b9b2a3"/>',
+                 f'<rect x="{x + 3}" y="{y + 3}" width="{w - 6}" height="{h - 6}" fill="url(#hs-glas)"/>',
+                 f'<path d="M{x + 6} {y + h - 4} L{x + 22} {y + 4} H{x + 30} L{x + 14} {y + h - 4} Z" fill="#a9b8d6" opacity=".1"/>',
+                 f'<rect x="{x - 4}" y="{y + h}" width="{w + 8}" height="3.4" rx="1" fill="#9a9384"/>']
+        if laeden:
+            for lx in (x - 17, x + w + 2):
+                teile.append(f'<rect x="{lx}" y="{y}" width="15" height="{h}" rx="1.5" fill="#1f3b37"/>')
+                teile += [f'<rect x="{lx + 2}" y="{yy:.1f}" width="11" height="1.1" fill="#000" opacity=".28"/>' for yy in range(y + 4, y + h - 2, 4)]
+            # Blumenkasten mit Blüten
+            teile.append(f'<rect x="{x + 4}" y="{y + h + 3.4}" width="{w - 8}" height="6" rx="1.5" fill="#4a3322"/>')
+            blueten = [(x + 8 + i * (w - 16) / 13 + z() * 2, y + h + 2 - z() * 4) for i in range(14)]
+            teile.append(_kreis_reihe(z, [(bx, by + 2) for bx, by in blueten], ("#29452c", "#2f5233"), 2, 3))
+            teile.append(_kreis_reihe(z, blueten, ("#b34a6e", "#c98d2e", "#7a5bc4", "#c25454", "#d6a84c"), 1, 1.7))
+        return "".join(teile)
+
+    tuer = (f'<polygon points="142,206 204,206 198,196 148,196" fill="#2b313c"/>'
+            f'<path d="M140 206.5 H206" stroke="#4a5160" stroke-width="1.6" stroke-linecap="round"/>'
+            f'<path d="M150 206 l-4 6 M196 206 l4 6" stroke="#3a3a3c" stroke-width="1.4"/>'
+            f'<rect x="150" y="208" width="46" height="54" rx="2" fill="#7a7466"/>'
+            f'<path d="M154 262 V226 Q154 212 173 212 Q192 212 192 226 V262 Z" fill="url(#hs-tuerholz)"/>'
+            f'<path d="M158 226 Q158 216 173 216 Q188 216 188 226 Z" fill="url(#hs-glas)"/>'
+            + "".join(f'<rect x="{px}" y="{py}" width="12" height="{ph}" rx="1" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="1"/>'
+                      for px, py, ph in ((158, 230, 12), (176, 230, 12), (158, 245, 14), (176, 245, 14)))
+            + f'<circle cx="187" cy="243" r="1.6" fill="#c9a45a"/><rect x="166" y="241" width="14" height="2" rx="1" fill="#9a8a5a"/>'
+            f'<rect x="146" y="262" width="54" height="3" fill="#4a4e58"/><rect x="142" y="265" width="62" height="3" fill="#3e424b"/>'
+            f'<rect x="160" y="259.5" width="26" height="2.5" rx="1" fill="#5a3f2a"/>'
+            + "".join(f'<rect x="{lx}" y="214" width="1.5" height="5" fill="#2c2c2e"/><path d="M{lx - 2.5} 219 h6.5 l-1 9 h-4.5 z" fill="#1c1c1e"/>'
+                      f'<rect x="{lx - 1.2}" y="220.5" width="4" height="6" fill="#2a2d36"/>' for lx in (141, 204))
+            + "".join(f'<path d="M{px} 262 l1.5 -7 h8 l1.5 7 z" fill="#5a3324"/>' for px in (132, 205))
+            + _kreis_reihe(z, [(137 + z() * 4 - 2, 250 - z() * 6) for _ in range(9)] + [(210 + z() * 4 - 2, 250 - z() * 6) for _ in range(9)],
+                           ("#1d3a25", "#24472d", "#2b5234"), 2.4, 3.6))
+    gras = "".join(f'<path d="M{x:.1f} 266 l{(z() - .5) * 2:.1f} -{2 + z() * 4:.1f}" stroke="{z.wahl(("#1f3826", "#284a30", "#1a3020"))}" stroke-width=".8"/>'
+                   for x in (i * 2.2 + z() for i in range(182)))
+    beet = (_kreis_reihe(z, [(52 + i * 4.6 + z() * 2, 264 - z() * 3) for i in range(20)] + [(214 + i * 4.4 + z() * 2, 264 - z() * 3) for i in range(20)],
+                         ("#1b3523", "#22422b", "#284d31"), 2.4, 3.8)
+            + _kreis_reihe(z, [(54 + i * 7.5 + z() * 3, 260 - z() * 4) for i in range(12)] + [(216 + i * 7.2 + z() * 3, 260 - z() * 4) for i in range(12)],
+                           ("#a84466", "#b9852c", "#6d53b0", "#b04b4b", "#c9a34a"), .9, 1.5))
+    steine = "".join(f'<ellipse cx="{173 + (z() - .5) * 6:.1f}" cy="{y}" rx="{ry * 2.2:.1f}" ry="{ry:.1f}" fill="{z.wahl(("#3c4049", "#363a43", "#42464f"))}"/>'
+                     for y, ry in ((271, 2.6), (277.5, 3), (284.5, 3.4)))
+    baum = ('<path d="M22 266 L24 200 Q26 190 28 200 L31 266 Z" fill="url(#hs-stamm)"/><path d="M26 214 Q36 204 44 200 M25 226 Q14 216 8 214" stroke="#2a1d14" stroke-width="2.4" fill="none" stroke-linecap="round"/>'
+            + _kreis_reihe(z, [(26 + (z() - .5) * 60, 176 + (z() - .5) * 52) for _ in range(46)], ("#11231a", "#152b1f", "#1a3424", "#1f3c2a", "#244530"), 6, 12))
+    zaun = "".join(f'<path d="M{x} 286 V{273 + (1 if i % 2 else 0)} l2.2 -2.6 l2.2 2.6 V286 Z" fill="#3e434d"/>'
+                   for i, x in enumerate(list(range(0, 128, 7)) + list(range(226, 336, 7))))
+    zaun += '<rect x="0" y="276" width="132" height="2" fill="#353a43"/><rect x="0" y="282" width="132" height="2" fill="#353a43"/>'
+    zaun += '<rect x="224" y="276" width="114" height="2" fill="#353a43"/><rect x="224" y="282" width="114" height="2" fill="#353a43"/>'
+    briefkasten = '<rect x="317" y="262" width="2.4" height="24" fill="#2c2c2e"/><rect x="311" y="252" width="14" height="10" rx="3" fill="#33476b"/><rect x="314" y="255.5" width="8" height="1.2" fill="#000" opacity=".4"/>'
+    kulisse = f'''<svg class="hs-kulisse" viewBox="0 0 400 290" aria-hidden="true">
   <defs>
-    <radialGradient id="hs-glut" cx="50%" cy="55%" r="50%"><stop offset="0" stop-color="#ffb340" stop-opacity=".55"/><stop offset=".55" stop-color="#ff9f0a" stop-opacity=".16"/><stop offset="1" stop-color="#ff9f0a" stop-opacity="0"/></radialGradient>
-    <radialGradient id="hs-schein"><stop offset=".35" stop-color="#ffc94a" stop-opacity=".55"/><stop offset="1" stop-color="#ffc94a" stop-opacity="0"/></radialGradient>
-    <radialGradient id="hs-licht" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="#fff1c4"/><stop offset=".6" stop-color="#ffd27a"/><stop offset="1" stop-color="#ffad33"/></radialGradient>
-    <linearGradient id="hs-dachlicht" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd60a"/><stop offset="1" stop-color="#ff9f0a"/></linearGradient>
-    <linearGradient id="hs-dachgrund" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#23232a"/><stop offset="1" stop-color="#141418"/></linearGradient>
-    <linearGradient id="hs-wandlicht" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2a14"/><stop offset="1" stop-color="#1c140a"/></linearGradient>
-    <linearGradient id="hs-boden" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#101a12"/><stop offset="1" stop-color="#000"/></linearGradient>
-    <radialGradient id="hs-laterne" cx="50%" cy="20%" r="80%"><stop offset="0" stop-color="#ffd27a" stop-opacity=".55"/><stop offset="1" stop-color="#ffd27a" stop-opacity="0"/></radialGradient>
-    <radialGradient id="hs-blatt" cx="40%" cy="30%" r="80%"><stop offset="0" stop-color="#2e5a34"/><stop offset="1" stop-color="#0c1a0f"/></radialGradient>
-    <linearGradient id="hs-tuerholz" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3a2618"/><stop offset="1" stop-color="#24170e"/></linearGradient>
-    <pattern id="hs-ziegel" width="12" height="7" patternUnits="userSpaceOnUse"><path d="M0 7 Q3 3.5 6 7 Q9 3.5 12 7" fill="none" stroke="#fff" stroke-width=".6"/></pattern>
-    <pattern id="hs-putz" width="216" height="6" patternUnits="userSpaceOnUse"><path d="M0 5.5 H216" stroke="#fff" stroke-width=".4"/></pattern>
-    <linearGradient id="hs-post" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3a3a3c"/><stop offset=".5" stop-color="#6e6e73"/><stop offset="1" stop-color="#2c2c2e"/></linearGradient>
+    <linearGradient id="hs-fassade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3040"/><stop offset="1" stop-color="#1c202b"/></linearGradient>
+    <pattern id="hs-bretter" width="10" height="4.6" patternUnits="userSpaceOnUse"><rect width="10" height=".7" y="3.9" fill="#000" opacity=".28"/><rect width="10" height=".4" y="0" fill="#fff" opacity=".035"/></pattern>
+    <linearGradient id="hs-glas" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1b2742"/><stop offset="1" stop-color="#0a1222"/></linearGradient>
+    <linearGradient id="hs-tuerholz" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4a2c1a"/><stop offset="1" stop-color="#2d1a0f"/></linearGradient>
+    <linearGradient id="hs-stamm" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3a2a1d"/><stop offset="1" stop-color="#1e150e"/></linearGradient>
+    <linearGradient id="hs-wiese" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#142619"/><stop offset="1" stop-color="#050a07"/></linearGradient>
+    <linearGradient id="hs-saeule" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2c2c2e"/><stop offset=".45" stop-color="#55555a"/><stop offset="1" stop-color="#1c1c1e"/></linearGradient>
+    <clipPath id="hs-dachform"><polygon points="{dach_punkte}"/></clipPath>
   </defs>
-  <ellipse class="hs-glut" cx="180" cy="196" rx="190" ry="120" fill="url(#hs-glut)"/>
-  <rect class="hs-wiese" x="0" y="262" width="400" height="28" fill="url(#hs-boden)"/>
-  <path class="hs-weg" d="M166 262 H194 L206 290 H154 Z"/>
-  <g class="hs-garten">{baum}{busch}</g>
-  <polygon class="hs-dach" points="54,150 180,64 306,150" fill="url(#hs-dachgrund)"/>
-  <polygon class="hs-ziegel" points="54,150 180,64 306,150" fill="url(#hs-ziegel)"/>
-  <polygon class="hs-dach-licht" points="54,150 180,64 306,150" fill="url(#hs-dachlicht)"/>
-  <rect class="hs-kamin" x="250" y="80" width="22" height="45" fill="url(#hs-dachgrund)"/>
-  <rect class="hs-wand" x="72" y="146" width="216" height="116"/>
-  <rect class="hs-wand-licht" x="72" y="146" width="216" height="116" fill="url(#hs-wandlicht)"/>
-  <rect class="hs-putz" x="72" y="146" width="216" height="116" fill="url(#hs-putz)"/>
-  <path class="hs-traufe" d="M50 150 H310"/>
-  {raeume}
-  <g class="hs-raum hs-router" style="--s:.36"><image class="hs-geraet" href="{b('wlan-router')}" x="250" y="230" width="22" height="22"/></g>
-  <path class="hs-tuerblatt" d="M164 262 V216 Q180 206 196 216 V262 Z" fill="url(#hs-tuerholz)"/>
-  <circle class="hs-knauf" cx="190" cy="240" r="1.4"/>
-  <ellipse class="hs-laternenlicht" cx="204" cy="236" rx="20" ry="30" fill="url(#hs-laterne)"/>
-  <rect class="hs-laterne" x="202" y="219" width="4" height="6" rx="1"/>
-  <path class="hs-leitung" pathLength="1" d="M288 240 V206 H86"/>
-  {linien}
-  <rect class="hs-post" x="350" y="206" width="6" height="56" fill="url(#hs-post)"/>
-  <path class="hs-kabel" pathLength="1" d="{kabel}"/>
-  <path class="hs-strom" pathLength="1" d="{kabel}"/>
+  <rect x="0" y="264" width="400" height="26" fill="url(#hs-wiese)"/>
+  {baum}
+  <clipPath id="hs-kaminform"><rect x="236" y="34" width="18" height="44"/></clipPath>
+  <rect x="236" y="34" width="18" height="44" fill="#4d2b22"/><g clip-path="url(#hs-kaminform)">{kamin_steine}</g>
+  <rect x="232" y="30" width="26" height="5" rx="1" fill="#3a3f4b"/><rect x="238" y="25" width="4" height="5" fill="#2c2c2e"/><rect x="247" y="26" width="4" height="4" fill="#2c2c2e"/>
+  <polygon points="{dach_punkte}" fill="#2a2e38"/>
+  <g clip-path="url(#hs-dachform)">{"".join(ziegel)}</g>
+  <path d="M30 134 L84 56 M316 134 L262 56" stroke="#454c5a" stroke-width="3" stroke-linecap="round"/>
+  <rect x="80" y="52" width="186" height="5" rx="2.5" fill="#454c5a"/>
+  {gaube(118)}{gaube(228)}
+  <rect x="46" y="134" width="254" height="132" fill="url(#hs-fassade)"/>
+  <rect x="46" y="134" width="254" height="118" fill="url(#hs-bretter)"/>
+  <rect x="46" y="134" width="5" height="118" fill="#303646"/><rect x="295" y="134" width="5" height="118" fill="#303646"/>
+  <rect x="46" y="134" width="254" height="5" fill="#000" opacity=".3"/>
+  {"".join(sockel)}
+  <rect x="24" y="133" width="298" height="4" fill="#2b303b"/><rect x="24" y="136.5" width="298" height="3" rx="1.5" fill="#5a6170"/>
+  <rect x="302" y="139" width="3" height="125" fill="#4f5664"/><rect x="301" y="160" width="5" height="1.6" fill="#3a3f4b"/><rect x="301" y="210" width="5" height="1.6" fill="#3a3f4b"/>
+  <path d="M302 262 h7 v3 h-7 z" fill="#4f5664"/>
+  {fensterrahmen(62, 146, 84, 50, True)}{fensterrahmen(200, 146, 84, 50, True)}
+  {fensterrahmen(62, 210, 76, 44, False)}{fensterrahmen(208, 210, 76, 44, False)}
+  <circle cx="173" cy="166" r="10.5" fill="#b9b2a3"/><circle cx="173" cy="166" r="8" fill="url(#hs-glas)"/>
+  <path d="M173 158 V174 M165 166 H181" stroke="#b9b2a3" stroke-width="1.2"/>
+  {tuer}
+  {beet}{steine}{gras}
+  <rect x="348" y="206" width="10" height="58" rx="2" fill="url(#hs-saeule)"/><rect x="342" y="262" width="22" height="4" rx="1.5" fill="#2c2c2e"/>
+  <rect x="322" y="146" width="62" height="60" rx="12" fill="#151517"/><rect x="322" y="146" width="62" height="60" rx="12" fill="none" stroke="#3a3a3c" stroke-width="1.2"/>
+  {zaun}{briefkasten}
+</svg>'''
+
+    # ---------- Skizze: weiße Umrisse zeichnen sich, bevor das Haus erscheint
+    skizze = "".join(f'<path class="hs-linie" pathLength="1" style="--a:{a};--l:{l}" d="{d}"/>' for a, l, d in (
+        (0, .06, "M10 266 H390"),
+        (.02, .08, "M46 266 V134 H300 V266"),
+        (.05, .08, "M30 134 L84 56 H262 L316 134"),
+        (.09, .04, "M236 70 V34 H254 V66"),
+        (.1, .05, "M62 146 h84 v50 h-84 Z M200 146 h84 v50 h-84 Z"),
+        (.12, .05, "M62 210 h76 v44 h-76 Z M208 210 h76 v44 h-76 Z M154 262 V226 Q154 212 173 212 Q192 212 192 226 V262"),
+    ))
+    skizze_svg = f'<svg class="hs-skizze" viewBox="0 0 400 290" aria-hidden="true">{skizze}</svg>'
+
+    # ---------- Licht: Zimmer mit Einrichtung, Laternen, Gauben, Kabel, Zähler
+    def zimmer(nr, gx, gy, gw, gh, start, vorhang, inhalt):
+        boden = gy + gh * .8
+        return f'''<g class="hs-zimmer" style="--s:{start}">
+    <rect class="hs-schein" x="{gx - 18}" y="{gy - 18}" width="{gw + 36}" height="{gh + 36}" rx="26"/>
+    <clipPath id="hs-z{nr}"><rect x="{gx}" y="{gy}" width="{gw}" height="{gh}"/></clipPath>
+    <g clip-path="url(#hs-z{nr})">
+      <rect x="{gx}" y="{gy}" width="{gw}" height="{gh}" fill="url(#hs-wand-innen)"/>
+      <rect x="{gx}" y="{gy}" width="{gw}" height="{gh}" fill="url(#hs-tapete)"/>
+      <rect x="{gx}" y="{boden:.1f}" width="{gw}" height="{gh * .2 + 1:.1f}" fill="url(#hs-dielen)"/>
+      <rect x="{gx}" y="{boden:.1f}" width="{gw}" height="1" fill="#000" opacity=".25"/>
+      <ellipse cx="{gx + gw / 2}" cy="{gy + 2}" rx="{gw * .55:.1f}" ry="{gh * .6:.1f}" fill="url(#hs-deckenlicht)"/>
+      {inhalt}
+      <path d="M{gx} {gy} h{gw * .16:.1f} q-2 {gh * .5:.1f} 2 {gh:.1f} h-{gw * .16 + 2:.1f} z" fill="{vorhang}"/>
+      <path d="M{gx + gw} {gy} h-{gw * .16:.1f} q2 {gh * .5:.1f} -2 {gh:.1f} h{gw * .16 + 2:.1f} z" fill="{vorhang}"/>
+      <path d="M{gx + 3} {gy} v{gh} M{gx + 7} {gy} v{gh} M{gx + gw - 3} {gy} v{gh} M{gx + gw - 7} {gy} v{gh}" stroke="#000" stroke-opacity=".14" stroke-width="1"/>
+      <path d="M{gx + 8} {gy + gh} L{gx + 26} {gy} H{gx + 34} L{gx + 16} {gy + gh} Z" fill="#fff" opacity=".1"/>
+    </g>
+  </g>'''
+
+    kueche = (f'<rect x="113" y="151" width="26" height="9" rx="1" fill="#e8e3d8"/><path d="M126 151 v9" stroke="#b9b2a3" stroke-width=".6"/>'
+              f'<rect x="111" y="171" width="30" height="16" fill="#e8e3d8"/><rect x="110" y="169" width="32" height="2.4" fill="#8a5528"/>'
+              f'<path d="M126 172 v14" stroke="#b9b2a3" stroke-width=".6"/><circle cx="121" cy="178" r=".8" fill="#8e8e93"/><circle cx="131" cy="178" r=".8" fill="#8e8e93"/>'
+              f'<image href="{b("kuehlschrank")}" x="72" y="149" width="40" height="40"/>'
+              f'<image href="{b("wlan-router")}" x="125" y="159.5" width="13" height="13"/>'
+              f'<rect x="113" y="163" width="3" height="6" rx="1" fill="#c25454"/><rect x="117" y="164" width="3" height="5" rx="1" fill="#3a7bd5"/>')
+    wohnen = (f'<rect x="208" y="155" width="13" height="10" fill="#6b4a32"/><rect x="209.5" y="156.5" width="10" height="7" fill="#7fb0d8"/><path d="M209.5 163.5 l3 -3 l2 2 l2.5 -3 l2.5 4 z" fill="#3d7a4a"/>'
+              f'<rect x="220" y="177" width="46" height="8" rx="1" fill="#6b4a32"/><rect x="222" y="185" width="2" height="3" fill="#4a3322"/><rect x="262" y="185" width="2" height="3" fill="#4a3322"/>'
+              f'<image href="{b("fernseher")}" x="226" y="147.3" width="34" height="34"/>'
+              f'<path d="M272 186 V158" stroke="#3a3a3c" stroke-width="1"/><path d="M267 158 h10 l-2 -6 h-6 z" fill="#f2d39e"/><ellipse cx="272" cy="158" rx="9" ry="12" fill="#fff3c8" opacity=".3"/>')
+    bad = (f'<rect x="65" y="213" width="70" height="30" fill="url(#hs-fliesen)"/>'
+           f'<image href="{b("waschmaschine")}" x="74" y="210.7" width="36" height="36"/>'
+           f'<path d="M114 224 h14" stroke="#c9ced6" stroke-width="1.2"/><rect x="117" y="224.6" width="8" height="12" rx="1" fill="#e06a8a"/><rect x="117" y="232" width="8" height="1.4" fill="#fff" opacity=".6"/>'
+           f'<rect x="112" y="217" width="16" height="1.4" fill="#d5d9df"/><rect x="113" y="213" width="3" height="4" rx="1" fill="#64d2ff"/><rect x="117" y="212.5" width="2.6" height="4.5" rx="1" fill="#ffd60a"/><rect x="121" y="213.5" width="3" height="3.5" rx="1" fill="#30d158"/>')
+    buero = (f'<rect x="214" y="216" width="13" height="24" fill="#6b4a32"/>'
+             + "".join(f'<rect x="{215 + i * 2.2:.1f}" y="{218 + (i % 2)}" width="1.8" height="{5 - (i % 2)}" fill="{c}"/>' for i, c in enumerate(("#c25454", "#3a7bd5", "#30d158", "#e0a33a", "#7a5bc4")))
+             + "".join(f'<rect x="{215 + i * 2.2:.1f}" y="{226 + (i % 3) * .5}" width="1.8" height="{5 - (i % 3) * .5}" fill="{c}"/>' for i, c in enumerate(("#e0a33a", "#c25454", "#64d2ff", "#2f9e44", "#8e8e93")))
+             + f'<rect x="215" y="224.5" width="11" height=".8" fill="#4a3322"/><rect x="215" y="231.5" width="11" height=".8" fill="#4a3322"/>'
+             f'<rect x="230" y="232" width="42" height="2.5" fill="#8a5528"/><rect x="232" y="234.5" width="2" height="9" fill="#5a3a22"/><rect x="268" y="234.5" width="2" height="9" fill="#5a3a22"/>'
+             f'<image href="{b("laptop")}" x="235" y="210.5" width="30" height="30"/>'
+             f'<path d="M266 232 l3 -10 l-4 -4" stroke="#3a3a3c" stroke-width="1" fill="none"/><path d="M262 216 l6 -2 l1 4 z" fill="#f2d39e"/>')
+    licht = f'''<svg class="hs-licht" viewBox="0 0 400 290" aria-hidden="true">
+  <defs>
+    <radialGradient id="hs-schein"><stop offset=".3" stop-color="#ffc94a" stop-opacity=".5"/><stop offset="1" stop-color="#ffc94a" stop-opacity="0"/></radialGradient>
+    <linearGradient id="hs-wand-innen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9b8"/><stop offset="1" stop-color="#efb465"/></linearGradient>
+    <pattern id="hs-tapete" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="1.2" height="6" fill="#fff" opacity=".16"/><circle cx="3.6" cy="3" r=".5" fill="#c98a3a" opacity=".25"/></pattern>
+    <pattern id="hs-dielen" width="14" height="3" patternUnits="userSpaceOnUse"><rect width="14" height="3" fill="#9a6236"/><rect width="14" height=".5" y="2.5" fill="#000" opacity=".25"/><rect x="8" width=".5" height="3" fill="#000" opacity=".2"/></pattern>
+    <pattern id="hs-fliesen" width="5" height="5" patternUnits="userSpaceOnUse"><rect width="5" height="5" fill="#eaf2f7"/><path d="M0 4.7 H5 M4.7 0 V5" stroke="#b9c7d3" stroke-width=".5"/></pattern>
+    <radialGradient id="hs-deckenlicht" cx="50%" cy="0%" r="100%"><stop offset="0" stop-color="#fffbe8" stop-opacity=".9"/><stop offset="1" stop-color="#fffbe8" stop-opacity="0"/></radialGradient>
+    <radialGradient id="hs-laternenschein" cx="50%" cy="25%" r="75%"><stop offset="0" stop-color="#ffd27a" stop-opacity=".6"/><stop offset="1" stop-color="#ffd27a" stop-opacity="0"/></radialGradient>
+    <linearGradient id="hs-warm-unten" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ff9f0a" stop-opacity=".55"/><stop offset="1" stop-color="#ff9f0a" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect class="hs-fassadenlicht" x="46" y="134" width="254" height="132" fill="url(#hs-warm-unten)"/>
+  <polygon class="hs-dachlicht" points="{dach_punkte}" fill="url(#hs-warm-unten)"/>
+  {zimmer(1, 65, 149, 78, 44, .30, "#7fa88c", kueche)}
+  {zimmer(2, 203, 149, 78, 44, .52, "#b8423a", wohnen)}
+  {zimmer(3, 65, 213, 70, 38, .58, "#7fb2d9", bad)}
+  {zimmer(4, 211, 213, 70, 38, .64, "#d9a441", buero)}
+  <g class="hs-zimmer" style="--s:.70"><circle cx="173" cy="166" r="8" fill="#ffd27a"/><path d="M173 158 V174 M165 166 H181" stroke="#b9b2a3" stroke-width="1.2"/></g>
+  {"".join(f'<g class="hs-zimmer" style="--s:.78"><rect x="{cx - 9}" y="97" width="18" height="15" fill="#ffd894"/><ellipse cx="{cx}" cy="98" rx="10" ry="9" fill="url(#hs-deckenlicht)"/><path d="M{cx - 9} 109 L{cx + 3} 97 H{cx + 7} L{cx - 5} 109 Z" fill="#fff" opacity=".14"/></g>' for cx in (118, 228))}
+  <g class="hs-eingang">
+    <path d="M158 226 Q158 216 173 216 Q188 216 188 226 Z" fill="#ffcf73"/>
+    {"".join(f'<rect x="{lx - 1.2}" y="220.5" width="4" height="6" fill="#ffe7a0"/><ellipse cx="{lx + .8}" cy="238" rx="15" ry="24" fill="url(#hs-laternenschein)"/>' for lx in (141, 204))}
+  </g>
+  <path class="hs-kabel" pathLength="1" d="M353 206 V264 H300"/>
+  <path class="hs-strom" pathLength="1" d="M353 206 V264 H300"/>
   <g class="hs-zaehler">
     <rect class="hs-zaehler-box" x="322" y="146" width="62" height="60" rx="12"/>
     <text class="hs-zahl" x="353" y="175" data-story-zaehler="{gesamt}" data-von=".26" data-bis=".97">{zahl(gesamt)}</text>
@@ -1200,16 +1367,47 @@ def haus_story(s, ctx):
     <rect class="hs-balken-spur" x="334" y="194" width="38" height="3.5" rx="1.75"/>
     <rect class="hs-balken" x="334" y="194" width="38" height="3.5" rx="1.75"/>
   </g>
-</svg>
-<svg class="hs-fluss" viewBox="0 0 400 290" aria-hidden="true">
+</svg>'''
+
+    # ---------- Leben: Rauch, laufende Geräte, Stromfunken, Glühwürmchen, Lichterkette
+    kabel = "M353 206 V264 H300"
+    punkte = "".join(f'<g class="hs-punkt"><circle r="6" class="hs-punkt-hof"/><circle r="2.6"/>'
+                     f'<animateMotion dur="1.6s" begin="{t}s" repeatCount="indefinite" path="{kabel}"/></g>' for t in (0, .4, .8, 1.2))
+    rauch = "".join(f'<circle class="hs-rauch" cx="245" cy="24" r="4" style="--d:{d}s"/>' for d in (0, 1.4, 2.8))
+    gluehwuermchen = "".join(f'<circle class="hs-gluehwurm" r="1.3" style="--d:{d}s"><animateMotion dur="{dur}s" repeatCount="indefinite" path="{pfad}"/></circle>'
+                             for d, dur, pfad in ((0, 9, "M60 250 q20 -14 40 -2 t30 6 q-30 12 -70 -4"), (1.5, 11, "M250 248 q18 -16 36 -4 t26 8 q-28 10 -62 -4"),
+                                                   (3, 8, "M330 244 q-14 -12 -30 -2 t-10 10 q24 8 40 -8"), (.8, 10, "M120 256 q16 -8 30 0 t20 4 q-22 6 -50 -4")))
+    birnen = []
+    for seg in range(6):
+        x0, x1 = 30 + seg * 47.3, 30 + (seg + 1) * 47.3
+        for k in range(1, 5):
+            t = k / 5
+            x = x0 + (x1 - x0) * t
+            y = 139.5 + 4 * 4 * t * (1 - t)
+            birnen.append((x, y))
+    kette = "".join(f'<path d="M{30 + i * 47.3:.1f} 139.5 Q{30 + (i + .5) * 47.3:.1f} 147.5 {30 + (i + 1) * 47.3:.1f} 139.5" fill="none" stroke="#1c1c1e" stroke-width=".7"/>' for i in range(6))
+    lichterkette = kette + "".join(f'<g class="hs-birne" style="--d:{(i * 7) % 10 / 4:.2f}s"><circle cx="{x:.1f}" cy="{y + 1.5:.1f}" r="4" class="hs-birne-hof" fill="{c}"/>'
+                                   f'<circle cx="{x:.1f}" cy="{y + 1.5:.1f}" r="1.5" fill="{c}"/></g>'
+                                   for i, ((x, y), c) in enumerate(zip(birnen, ("#ffd27a", "#ff8fa3", "#9fdcff", "#b8f5a0") * 6)))
+    leben = f'''<svg class="hs-fluss" viewBox="0 0 400 290" aria-hidden="true">
   <g class="hs-rauchsaeule">{rauch}</g>
-  <g class="hs-leben" style="--s:.36"><path class="hs-wlan" d="M255.5 228 Q261 223 266.5 228 M252.5 225 Q261 217 269.5 225" style="--d:0s"/></g>
-  <g class="hs-leben" style="--s:.52"><rect class="hs-bildschirm" x="221.6" y="166.7" width="30.8" height="19.4" rx="1"/></g>
-  <g class="hs-leben" style="--s:.58"><g class="hs-trommel"><circle cx="121.3" cy="237.2" r="2.2" fill="#0a84ff"/><circle cx="116.8" cy="234.6" r="1.7" fill="#ff9f0a"/><circle cx="118.8" cy="239.4" r="1.4" fill="#ff375f"/></g></g>
-  <g class="hs-leben" style="--s:.64"><rect class="hs-laptop-licht" x="220" y="222" width="22" height="14.4" rx=".8"/></g>
+  <g class="hs-leben" style="--s:.36"><path class="hs-wlan" d="M126.5 158 Q131.5 153.5 136.5 158 M123.5 155 Q131.5 148 139.5 155"/></g>
+  <g class="hs-leben" style="--s:.52"><rect class="hs-bildschirm" x="229.2" y="153.2" width="27.5" height="17.3" rx=".8"/></g>
+  <g class="hs-leben" style="--s:.58"><g class="hs-trommel"><circle cx="94.4" cy="232.8" r="2.2" fill="#0a84ff"/><circle cx="89.8" cy="230.4" r="1.7" fill="#ff9f0a"/><circle cx="91.6" cy="235.2" r="1.4" fill="#ff375f"/></g></g>
+  <g class="hs-leben" style="--s:.64"><rect class="hs-laptop-licht" x="241.3" y="216.8" width="17.4" height="11.4" rx=".6"/></g>
   <g class="hs-punkte">{punkte}</g>
+  <g class="hs-gluehwuermchen">{gluehwuermchen}</g>
+  <g class="hs-lichterkette">{lichterkette}</g>
   <rect class="hs-puls" x="322" y="146" width="62" height="60" rx="12"/>
-</svg>
+</svg>'''
+
+    bild = f'''<div class="haus-bild">
+{himmel}
+<div class="hs-glut"></div>
+{kulisse}
+{skizze_svg}
+{licht}
+{leben}
 </div>'''
     schritte = [
         ("Rund um die Uhr", "Strom fließt immer.", "Auch wenn gerade niemand etwas einschaltet – irgendetwas läuft immer."),
