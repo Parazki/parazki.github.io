@@ -590,7 +590,7 @@ def startseite(ctx, geraete):
 
 {leuchttext([("Die meisten Haushalte zahlen jedes Jahr", False), ("Hunderte Euro", True),
              ("für Strom, den keiner bemerkt. Geräte im Standby. Ein alter Kühlschrank im Keller. Der Heizlüfter unterm Schreibtisch.", False),
-             ("Wir zeigen dir, wo dein Geld verschwindet", True), ("– und wie du es zurückholst.", False)])}
+             ("Wir zeigen dir, wo dein Geld verschwindet", True), ("– und wie du es zurückholst.", False)], weiter="zuhause")}
 
 {haus_story(s, ctx)}
 
@@ -1036,7 +1036,15 @@ def artikel_karte(s, a):
             f'<strong>{e(a["titel"])}</strong><small>{e(a["kurz"])}</small><span class="ak-mehr">Lesen{icon("chevron")}</span></a>')
 
 
-def story(schritte, bild, name, intro=None):
+def weiter_hinweis(ziel=None, hell=False):
+    """Dezenter Hinweis, dass es weitergeht: feine Linie, an der ein Lichtpunkt nach unten wandert (ohne Text)."""
+    klasse = "weiter weiter-hell" if hell else "weiter"
+    if ziel:
+        return f'<a class="{klasse}" href="#{ziel}" aria-label="Weiter"><span></span></a>'
+    return f'<span class="{klasse}" aria-hidden="true"><span></span></span>'
+
+
+def story(schritte, bild, name, intro=None, anker=None):
     """Scroll-Geschichte im Apple-Stil: Bühne bleibt stehen, Texte und Bild wechseln beim Scrollen.
 
     intro = (overline, titel, text): Zuerst steht nur dieser Text auf der Bühne, erst beim Weiterscrollen erscheint das Bild.
@@ -1048,11 +1056,12 @@ def story(schritte, bild, name, intro=None):
     if intro:
         over, titel, text = intro
         woerter = " ".join(f'<span class="wort" style="--w:{i}">{e(w)}</span>' for i, w in enumerate(titel.split()))
-        vorspann = f'\n    <div class="story-intro"><span class="overline">{e(over)}</span><h2>{woerter}</h2><p>{text}</p></div>'
+        vorspann = f'\n    <div class="story-intro"><span class="overline">{e(over)}</span><h2>{woerter}</h2><p>{text}</p>{weiter_hinweis(hell=True)}</div>'
         attribute = ' data-intro data-phase="intro"'
     klasse = "story story-mit-intro" if intro else "story"
     anzahl = len(schritte) + (1 if intro else 0)
-    return f'''<section class="{klasse}" data-story{attribute} style="--schritte:{anzahl}" aria-label="{e(name)}">
+    anker_attr = f' id="{anker}"' if anker else ""
+    return f'''<section class="{klasse}"{anker_attr} data-story{attribute} style="--schritte:{anzahl}" aria-label="{e(name)}">
   <div class="story-buehne">{vorspann}
     <div class="story-bild" aria-hidden="true">{bild}</div>
     <div class="story-texte">{texte}</div>
@@ -1078,10 +1087,11 @@ def bento(s):
     ]) + "</div>"
 
 
-def leuchttext(teile):
+def leuchttext(teile, weiter=None):
     """Absatz, der beim Scrollen Wort für Wort aufleuchtet (ohne JS: normal lesbar)."""
     woerter = [f'<span class="lw{" hell" if hell else ""}">{e(w)}</span>' for text, hell in teile for w in text.split()]
-    return f'<section class="leuchttext" data-leuchttext><p>{" ".join(woerter)}</p></section>'
+    hinweis = weiter_hinweis(weiter) if weiter else ""
+    return f'<section class="leuchttext" data-leuchttext><p>{" ".join(woerter)}</p>{hinweis}</section>'
 
 
 def _quad_punkt(ecken, u, v):
@@ -1417,7 +1427,7 @@ def haus_story(s, ctx):
          f'Das sind etwa {euro(gesamt * ctx["preis"])} für einen 2-Personen-Haushalt. <a href="{s.link("haushalt/")}">Wie ist es bei dir?</a>'),
     ]
     return story(schritte, bild, "Wohin fließt dein Strom?",
-                 intro=("Dein Zuhause", "Wohin fließt eigentlich dein Strom?", "Scroll weiter – wir schauen in ein ganz normales Haus."))
+                 intro=("Dein Zuhause", "Wohin fließt eigentlich dein Strom?", "Ein ganz normales Haus, ein ganz normaler Abend."), anker="zuhause")
 
 
 def solar_story(s, ertrag, ersparnis):
@@ -1586,7 +1596,7 @@ def solar_story(s, ertrag, ersparnis):
          f"Deine Geräte nutzen den Solarstrom sofort. Mit den Startwerten oben sparst du etwa {euro(ersparnis)} pro Jahr."),
     ]
     return story(schritte, bild, "So funktioniert ein Balkonkraftwerk",
-                 intro=("Balkonkraftwerk", "Strom vom eigenen Balkon.", "Scroll weiter – so wird aus Sonnenlicht Strom für deine Steckdose."))
+                 intro=("Balkonkraftwerk", "Strom vom eigenen Balkon.", "So wird aus Sonnenlicht Strom für deine Steckdose."), anker="so-funktionierts")
 
 
 def werkzeuge_uebersicht(ctx):

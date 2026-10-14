@@ -1665,3 +1665,36 @@ a { color: var(--blau); }
   .hs-funkeln, .hs-schnuppe, .hs-rauch, .hs-bildschirm, .hs-trommel, .hs-laptop-licht, .hs-wlan, .hs-gluehwurm, .hs-birne, .am-ende .hs-puls { animation: none !important; }
   .hs-punkt, .hs-gluehwurm { display: none; }
 }
+
+/* ================================================ Runde 10: Weiter-Hinweis und weicher Übergang in die Bühnen */
+/* Feine Linie, an der ein Lichtpunkt nach unten wandert – zeigt ohne Worte, dass es weitergeht */
+.weiter { position: relative; display: block; width: 28px; height: 58px; margin: 34px auto 0; color: var(--on-surface); text-decoration: none; }
+.weiter::before {
+  content: ""; position: absolute; left: 50%; top: 0; bottom: 9px; width: 1px; transform: translateX(-50%);
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, currentColor 34%, transparent));
+}
+.weiter::after {
+  content: ""; position: absolute; left: 50%; bottom: 2px; width: 7px; height: 7px; margin-left: -4px;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); opacity: .45;
+}
+.weiter > span {
+  position: absolute; left: 50%; top: 0; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent), 0 0 12px var(--primary);
+  animation: weiter-punkt 2.4s cubic-bezier(.45, 0, .55, 1) infinite;
+}
+@keyframes weiter-punkt { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: 1; } 78% { transform: translateY(42px); opacity: 1; } 100% { transform: translateY(46px); opacity: 0; } }
+a.weiter:hover > span { animation-duration: 1.4s; }
+.leuchttext .weiter { margin-top: 40px; }
+.weiter-hell { color: #f5f5f7; margin-top: 30px; }
+.weiter-hell > span { background: #ffd60a; box-shadow: 0 0 0 3px rgba(255, 214, 10, .18), 0 0 12px #ffd60a; }
+
+/* Vorspann sitzt weiter oben und ist da, sobald die Bühne ins Bild kommt (keine leere schwarze Fläche) */
+.story.lebendig .story-intro { justify-content: flex-start; padding-top: max(56px, 15vh); }
+.story-intro .weiter { opacity: 0; transition: opacity .8s var(--kurve) 1.2s; }
+.story.lebendig.intro-sichtbar[data-phase="intro"] .story-intro .weiter { opacity: 1; }
+.story.lebendig[data-phase="bild"] .story-intro .weiter { opacity: 0; transition-delay: 0s; transition-duration: .3s; }
+.story:not(.lebendig) .story-intro .weiter { display: none; }
+
+/* Weicher Übergang in die schwarze Bühne – sie wirkt nicht mehr wie das Ende der Seite */
+.story::before { content: ""; position: absolute; left: 0; right: 0; bottom: calc(100% - 1px); height: 89px; pointer-events: none; background: linear-gradient(to bottom, transparent, #000); }
+@media (prefers-reduced-motion: reduce) { .weiter > span { animation: none; top: 22px; } }

@@ -505,7 +505,7 @@
       if (st.hasAttribute("data-intro")) {
         // Vorspann: Das erste Stück der Strecke gehört nur dem Text, danach kommt das Bild
         const q = 1 / (n + 1);
-        st.classList.toggle("intro-sichtbar", box.top < vh * 0.3);
+        st.classList.toggle("intro-sichtbar", box.top < vh * 0.8); // Text erscheint, sobald die Bühne ins Bild kommt – keine leere schwarze Fläche
         const phase = p < q * 0.9 ? "intro" : "bild";
         if (st.dataset.phase !== phase) st.dataset.phase = phase;
         p = Math.max(0, (p - q) / (1 - q));

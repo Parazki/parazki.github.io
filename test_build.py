@@ -255,7 +255,11 @@ class Bauen(unittest.TestCase):
 
     def test_startseite_apple_buehnen(self):
         start = (self.ziel / "index.html").read_text(encoding="utf-8")
-        self.assertIn('class="story story-mit-intro" data-story data-intro data-phase="intro"', start)
+        self.assertIn('class="story story-mit-intro" id="zuhause" data-story data-intro data-phase="intro"', start)
+        # Hinweis, dass es weitergeht: unter dem Leuchttext (springt zur Haus-Szene) und im Vorspann – ohne „Scroll weiter“-Text
+        self.assertIn('<a class="weiter" href="#zuhause"', start)
+        self.assertIn('class="weiter weiter-hell"', start)
+        self.assertNotIn("Scroll weiter", start)
         self.assertLess(start.index('class="story-intro"'), start.index('class="story-bild"'), "Text muss vor dem Bild stehen")
         self.assertIn('class="bento"', start)
         self.assertIn("data-leuchttext", start)
