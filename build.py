@@ -15,7 +15,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlsplit
 
 from wissen import ARTIKEL, LEXIKON
 from bilder import BILDER
@@ -38,6 +38,11 @@ HAUSHALT_VORLAGE = [("kuehlschrank", 1), ("waschmaschine", 1), ("geschirrspueler
                     ("laptop", 1), ("smartphone", 2), ("led-lampe", 8)]
 # Typische Verteilung des Solarertrags über das Jahr in Deutschland (Prozent, Summe 100)
 SOLAR_MONATE = [3, 4.5, 8, 11, 13, 13.5, 13.5, 12, 9, 6.5, 3.5, 2.5]
+# Frühere Adresse als GitHub-Projektseite (…github.io/stromfresser-check/). Liegt die Seite an der Wurzel
+# einer Adresse, leiten Seiten unter diesen Pfaden auf die neue Adresse weiter.
+ALTE_PFADE = ["stromfresser-check"]
+# Öffentlicher IndexNow-Schlüssel (Bing, Ecosia, DuckDuckGo & Co.); muss als <schlüssel>.txt auf der Seite liegen
+INDEXNOW_KEY = "3b6259bd0d4ddf158ce04c0f8651ce9e"
 FAVORITEN = ["kuehlschrank", "heizluefter", "spielkonsole", "durchlauferhitzer", "fernseher", "waschmaschine"]
 
 
@@ -217,10 +222,10 @@ def amazon_link(ctx, query):
     return url
 
 
-def bild(s, key, cls="gbild", lazy=True):
-    """Eigene Illustration aus bilder.py als <img> (dekorativ, daher alt="")."""
+def bild(s, key, cls="gbild", lazy=True, alt=""):
+    """Eigene Illustration aus bilder.py als <img> (meist dekorativ, dann alt="")."""
     laden = ' loading="lazy"' if lazy else ""
-    return f'<img class="{cls}" src="{s.link("assets/bilder/" + key + ".svg")}" alt="" width="200" height="200"{laden} decoding="async">'
+    return f'<img class="{cls}" src="{s.link("assets/bilder/" + key + ".svg")}" alt="{e(alt)}" width="200" height="200"{laden} decoding="async">'
 
 
 def bild_oder_emoji(s, key, emoji, cls="gbild"):
@@ -322,6 +327,22 @@ def rangliste(s, geraete, markiert=None, anzahl=None):
     return f'<ol class="rangliste">{"".join(zeilen)}</ol>'
 
 
+def seiten_titel(ctx, titel):
+    """Hängt die Marke an, solange der Titel in Googles Ergebnisliste noch ganz sichtbar bleibt."""
+    marke = ctx["name"]
+    if "stromfresser" in titel.lower() or len(titel) + len(marke) + 3 > 68:
+        return titel
+    return f"{titel} | {marke}"
+
+
+def krumen_jsonld(eintraege):
+    """Brotkrümel als strukturierte Daten: Google zeigt dann den Pfad statt der nackten Adresse."""
+    return '<script type="application/ld+json">' + json.dumps({
+        "@context": "https://schema.org", "@type": "BreadcrumbList",
+        "itemListElement": [{"@type": "ListItem", "position": i, "name": name, "item": url}
+                            for i, (name, url) in enumerate(eintraege, 1)]}, ensure_ascii=False) + "</script>"
+
+
 def layout(seite, titel, beschreibung, inhalt, aktiv="", extra_head="", index=True, fab="", kopf_aktion=""):
     ctx = seite.ctx
     w = seite.wurzel
@@ -334,7 +355,9 @@ def layout(seite, titel, beschreibung, inhalt, aktiv="", extra_head="", index=Tr
         meta.append(f'<script defer src="{e(ctx["umami_script"])}" data-website-id="{e(ctx["umami_id"])}" data-domains="{e(domain)}"></script>')
     if ctx["adsense"]:
         meta.append(f'<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={e(ctx["adsense"])}" crossorigin="anonymous"></script>')
-    if not index:
+    if index:
+        meta.append('<meta name="robots" content="index, follow, max-image-preview:large">')
+    else:
         meta.append('<meta name="robots" content="noindex">')
     entwurf = ""
     if ctx["fehlend"]:
@@ -352,18 +375,28 @@ def layout(seite, titel, beschreibung, inhalt, aktiv="", extra_head="", index=Tr
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>{e(titel)}</title>
+<title>{e(seiten_titel(ctx, titel))}</title>
 <meta name="description" content="{e(beschreibung)}">
 <link rel="canonical" href="{e(seite.kanonisch)}">
+<meta property="og:site_name" content="{e(ctx['name'])}">
+<meta property="og:locale" content="de_DE">
 <meta property="og:title" content="{e(titel)}">
 <meta property="og:description" content="{e(beschreibung)}">
 <meta property="og:type" content="website">
 <meta property="og:url" content="{e(seite.kanonisch)}">
-<meta property="og:image" content="{e(ctx['base'])}/assets/icon-512.png">
+<meta property="og:image" content="{e(ctx['base'])}/assets/og-bild.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{e(ctx['name'])} – Finde die Stromfresser in deinem Zuhause">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="application-name" content="{e(ctx['name'])}">
+<meta name="apple-mobile-web-app-title" content="{e(ctx['name'])}">
 <meta name="theme-color" content="#F5FBF5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0F1512" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="{w}manifest.webmanifest">
+<link rel="icon" href="{w}favicon.ico" sizes="48x48">
 <link rel="icon" href="{w}assets/icon.svg" type="image/svg+xml">
+<link rel="icon" href="{w}assets/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="{w}assets/apple-touch-icon.png">
 <script>document.documentElement.classList.add("js")</script>
 <link rel="stylesheet" href="{w}assets/style.css?v={v}">
@@ -627,13 +660,18 @@ def startseite(ctx, geraete):
 
 {faq_html(fragen)}
 """
-    titel = f"Stromrechner {ctx['jahr']}: Stromkosten & Verbrauch jedes Geräts berechnen"
-    beschr = (f"Kostenloser Stromrechner für {len(geraete)} Geräte: Stromkosten pro Jahr und Monat, Haushalts-Check, "
-              "Zählerstand- und Standby-Rechner, Ratgeber und Spartipps. Auch als App nutzbar.")
-    jsonld = faq_jsonld(fragen) + '<script type="application/ld+json">' + json.dumps({
-        "@context": "https://schema.org", "@type": "WebApplication", "name": ctx["name"], "url": s.kanonisch,
-        "applicationCategory": "UtilitiesApplication", "operatingSystem": "Android, iOS, Windows, macOS",
-        "inLanguage": "de", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}}, ensure_ascii=False) + "</script>"
+    titel = f"{ctx['name']}: Stromrechner für jedes Gerät"
+    beschr = (f"Finde die Stromfresser in deinem Zuhause: Stromkosten von {len(geraete)} Geräten berechnen, Haushalts-Check, "
+              "persönlicher Sparplan und Spartipps – kostenlos.")
+    basis = ctx["base"]
+    jsonld = faq_jsonld(fragen) + '<script type="application/ld+json">' + json.dumps({"@context": "https://schema.org", "@graph": [
+        {"@type": "WebSite", "@id": f"{basis}/#website", "name": ctx["name"], "alternateName": ["Stromfresser Check", "Stromfresser-Check Stromrechner"],
+         "url": f"{basis}/", "inLanguage": "de", "publisher": {"@id": f"{basis}/#marke"}},
+        {"@type": "Organization", "@id": f"{basis}/#marke", "name": ctx["name"], "url": f"{basis}/",
+         "logo": {"@type": "ImageObject", "url": f"{basis}/assets/icon-512.png", "width": 512, "height": 512}},
+        {"@type": "WebApplication", "name": ctx["name"], "url": s.kanonisch, "image": f"{basis}/assets/og-bild.png",
+         "applicationCategory": "UtilitiesApplication", "operatingSystem": "Android, iOS, Windows, macOS",
+         "inLanguage": "de", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}}]}, ensure_ascii=False) + "</script>"
     return s, layout(s, titel, beschr, inhalt, "start", jsonld)
 
 
@@ -701,7 +739,7 @@ def geraeteseite(ctx, g, geraete):
     inhalt = f"""
 <nav class="krumen" aria-label="Brotkrümel"><a href="{s.wurzel}">Start</a>{icon('chevron')}<a href="{s.link('geraete/')}?kat={quote_plus(g['kategorie'])}">{e(g['kategorie'])}</a>{icon('chevron')}<span>{e(gross(name))}</span></nav>
 <section class="seitenkopf geraet-held">
-  <div class="geraet-held-bild" aria-hidden="true">{bild(s, g['slug'], lazy=False)}</div>
+  <div class="geraet-held-bild">{bild(s, g['slug'], lazy=False, alt=gross(name))}</div>
   <span class="overline">{e(g['kategorie'])}</span>
   <h1>Wie viel Strom verbraucht {e(voll)}?</h1>
   <p class="lead">{e(gross(voll))} verbraucht bei typischer Nutzung etwa <strong>{zahl(kwh)} kWh pro Jahr</strong>.
@@ -733,10 +771,12 @@ def geraeteseite(ctx, g, geraete):
 {messgeraet_karte(s)}
 {faq_html(fragen)}
 """
-    titel = f"{gross(name)}: Stromverbrauch & Kosten pro Jahr berechnen ({ctx['jahr']})"
+    titel = f"{gross(name)}: Stromverbrauch & Kosten {ctx['jahr']}"
     beschr = (f"{gross(voll)} verbraucht ca. {zahl(kwh)} kWh im Jahr – rund {euro(kosten)}. "
               f"Mit Rechner für deine eigenen Werte und Spartipps.")
-    return s, layout(s, titel, beschr, inhalt, "geraete", faq_jsonld(fragen), fab=haushalt_fab(g))
+    krumen = krumen_jsonld([("Start", f"{ctx['base']}/"), (g["kategorie"], f"{ctx['base']}/geraete/?kat={quote_plus(g['kategorie'])}"),
+                            (gross(name), s.kanonisch)])
+    return s, layout(s, titel, beschr, inhalt, "geraete", faq_jsonld(fragen) + krumen, fab=haushalt_fab(g))
 
 
 def haushalt_seite(ctx, geraete):
@@ -1381,6 +1421,7 @@ def wissen_artikel(ctx, a):
         "@context": "https://schema.org", "@type": "Article", "headline": a["titel"], "description": a["beschreibung"],
         "inLanguage": "de", "dateModified": ctx["heute"].isoformat(), "mainEntityOfPage": s.kanonisch,
         "author": {"@type": "Organization", "name": ctx["name"]}}, ensure_ascii=False) + "</script>"
+    jsonld += krumen_jsonld([("Start", f"{ctx['base']}/"), ("Strom-Wissen", f"{ctx['base']}/wissen/"), (a["titel"], s.kanonisch)])
     return s, layout(s, f"{a['titel']} ({ctx['jahr']})", a["beschreibung"], inhalt, "wissen", jsonld)
 
 
@@ -1824,6 +1865,31 @@ self.addEventListener("fetch", (ev) => {{
 
 # ---------------------------------------------------------------- Bauen
 
+def an_der_wurzel(basis):
+    """True, wenn die Seite direkt unter der Adresse liegt (z. B. https://parazki.github.io) und nicht in einem Unterordner."""
+    return not urlsplit(basis).path.strip("/")
+
+
+def umleitung(ziel_url):
+    """Sofort-Weiterleitung einer alten Adresse (GitHub Pages kann keine Server-Weiterleitung); Google wertet das als dauerhaften Umzug."""
+    u = e(ziel_url)
+    return f"""<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>Umgezogen</title>
+<link rel="canonical" href="{u}"><meta http-equiv="refresh" content="0; url={u}">
+<script>location.replace({json.dumps(ziel_url)} + location.search + location.hash)</script></head>
+<body><p>Diese Seite ist umgezogen: <a href="{u}">{u}</a></p></body></html>
+"""
+
+
+# Ersetzt den Service Worker der alten Adresse: meldet sich ab und lädt offene Fenster neu (die dann weiterleiten)
+SW_ABSCHALTEN = """self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", (ev) => ev.waitUntil((async () => {
+  await self.registration.unregister();
+  for (const fenster of await self.clients.matchAll({ type: "window" })) fenster.navigate(fenster.url);
+})()));
+"""
+
+
 def lade_geraete():
     geraete = json.loads((ROOT / "data" / "geraete.json").read_text(encoding="utf-8"))
     slugs = set()
@@ -1901,6 +1967,15 @@ def baue(ziel, strict=False, heute=None, cfg=None):
         datei.parent.mkdir(parents=True, exist_ok=True)
         datei.write_text(inhalt, encoding="utf-8")
     (ziel / "404.html").write_text(fehlerseite(ctx), encoding="utf-8")
+    shutil.copyfile(ROOT / "assets" / "favicon.ico", ziel / "favicon.ico")
+    (ziel / f"{INDEXNOW_KEY}.txt").write_text(INDEXNOW_KEY, encoding="utf-8")
+    if an_der_wurzel(ctx["base"]):
+        for alt in ALTE_PFADE:
+            for seite, _ in seiten:
+                datei = ziel / alt / seite.pfad / "index.html"
+                datei.parent.mkdir(parents=True, exist_ok=True)
+                datei.write_text(umleitung(seite.kanonisch), encoding="utf-8")
+            (ziel / alt / "sw.js").write_text(SW_ABSCHALTEN, encoding="utf-8")
     (ziel / "assets" / "daten.js").write_text(daten_js(ctx, geraete), encoding="utf-8")
     (ziel / "manifest.webmanifest").write_text(manifest(ctx), encoding="utf-8")
     (ziel / "sw.js").write_text(service_worker(ctx["version"]), encoding="utf-8")

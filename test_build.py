@@ -263,6 +263,41 @@ class Bauen(unittest.TestCase):
         self.assertNotIn('<text class="raum-emoji', haus)
         self.assertEqual(haus.count('<image class="raum-emoji'), 5)
 
+    def test_google_eintrag(self):
+        start = (self.ziel / "index.html").read_text(encoding="utf-8")
+        self.assertIn("<title>Stromfresser-Check: ", start)
+        self.assertIn('<meta property="og:site_name" content="Stromfresser-Check">', start)
+        self.assertIn("/assets/og-bild.png", start)
+        self.assertIn('max-image-preview:large', start)
+        self.assertNotIn('max-image-preview', (self.ziel / "impressum" / "index.html").read_text(encoding="utf-8"))
+        graph = [json.loads(b) for b in re.findall(r'<script type="application/ld\+json">(.*?)</script>', start, re.S)]
+        website = next(x for b in graph for x in b.get("@graph", []) if x["@type"] == "WebSite")
+        self.assertEqual(website["name"], "Stromfresser-Check")
+        png = (self.ziel / "assets" / "og-bild.png").read_bytes()
+        self.assertEqual((int.from_bytes(png[16:20], "big"), int.from_bytes(png[20:24], "big")), (1200, 630))
+        ico = (self.ziel / "favicon.ico").read_bytes()
+        self.assertEqual(ico[:4], b"\x00\x00\x01\x00")
+        self.assertEqual((self.ziel / f"{build.INDEXNOW_KEY}.txt").read_text(encoding="utf-8"), build.INDEXNOW_KEY)
+        geraet = (self.ziel / "geraet" / "kuehlschrank" / "index.html").read_text(encoding="utf-8")
+        self.assertIn('"BreadcrumbList"', geraet)
+        self.assertIn('alt="Kühlschrank"', geraet)
+
+    def test_umzug_alte_adressen_leiten_weiter(self):
+        self.assertTrue(build.an_der_wurzel("https://parazki.github.io"))
+        self.assertFalse(build.an_der_wurzel("https://parazki.github.io/stromfresser-check"))
+        if not build.an_der_wurzel(self.ctx["base"]):
+            # Noch als Projektseite unter /stromfresser-check/ veröffentlicht: keine Weiterleitungen nötig
+            self.assertFalse((self.ziel / "stromfresser-check").exists())
+            return
+        # An der Wurzel (localhost oder parazki.github.io) -> jede alte Adresse zeigt auf die neue
+        for seite in ("", "geraet/kuehlschrank/", "werkzeuge/vergleich/"):
+            text = (self.ziel / "stromfresser-check" / seite / "index.html").read_text(encoding="utf-8")
+            neu = f"{self.ctx['base']}/{seite}"
+            self.assertIn(f'<link rel="canonical" href="{neu}">', text)
+            self.assertIn(f'content="0; url={neu}"', text)
+        self.assertIn("unregister", (self.ziel / "stromfresser-check" / "sw.js").read_text(encoding="utf-8"))
+        self.assertNotIn("stromfresser-check/", (self.ziel / "sitemap.xml").read_text(encoding="utf-8"))
+
     def test_kein_html_injection_aus_daten(self):
         for g in self.geraete:
             for feld in ("name", "hinweis", "tipp"):

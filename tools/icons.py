@@ -86,6 +86,11 @@ def main():
     for name, groesse, blitz, radius in auftraege:
         png(ZIEL / name, groesse, male(groesse, blitz, radius))
         print("geschrieben:", name)
+    # favicon.ico für Google (Vielfaches von 48 px) und alte Browser: ICO-Hülle um ein 48-px-PNG
+    png(ZIEL / "icon-48.png", 48, male(48, 0.62, 0.22))
+    daten = (ZIEL / "icon-48.png").read_bytes()
+    (ZIEL / "favicon.ico").write_bytes(struct.pack("<HHH", 0, 1, 1) + struct.pack("<BBBBHHII", 48, 48, 0, 0, 1, 32, len(daten), 22) + daten)
+    print("geschrieben: icon-48.png, favicon.ico")
 
 
 if __name__ == "__main__":

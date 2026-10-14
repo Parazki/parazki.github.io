@@ -32,13 +32,16 @@ Diese Schritte kann Claude **nicht** für dich machen (Konten anlegen, persönli
 1. **Impressum ausfüllen** – in `config.json` unter `impressum` Name, Anschrift und E-Mail eintragen.
    In Deutschland Pflicht für Websites mit Partnerlinks. Ohne Impressum verweigert der Bau die Veröffentlichung absichtlich.
 2. **GitHub-Konto** anlegen (kostenlos): https://github.com/signup
-3. Auf GitHub ein **neues, leeres, öffentliches Repository** `stromfresser-check` anlegen (ohne README).
+3. Auf GitHub ein **neues, leeres, öffentliches Repository** `DEIN-GITHUB-NAME.github.io` anlegen (ohne README).
+   Mit genau diesem Namen liegt die Seite an der Wurzel der Adresse – nur dann zeigt Google deinen Seitennamen und dein Logo
+   statt einer grauen Weltkugel. (Ein anderer Name funktioniert auch, dann liegt die Seite unter `…github.io/NAME/`.)
 4. In PowerShell in diesem Ordner ausführen (lädt alles hoch):
    ```
    powershell -ExecutionPolicy Bypass -File veroeffentlichen.ps1 -GitHubName DEIN-GITHUB-NAME
    ```
 5. Auf GitHub im Repository: **Settings → Pages → Source: „GitHub Actions“**, dann **Actions → „Website bauen und veröffentlichen“ → Run workflow**.
-   Nach ~2 Minuten ist die Seite online: `https://DEIN-GITHUB-NAME.github.io/stromfresser-check/`
+   Nach ~2 Minuten ist die Seite online: `https://DEIN-GITHUB-NAME.github.io/`
+   Bei jedem Veröffentlichen meldet der Workflow alle Seiten per IndexNow an Bing, Ecosia und DuckDuckGo.
 6. **Amazon-Partnerprogramm** (kostenlos): https://partnernet.amazon.de – Website-URL aus Schritt 5 angeben.
    Den Partner-Tag (endet meist auf `-21`) in `config.json` bei `amazon_partner_tag` eintragen und hochladen
    (auf GitHub die Datei `config.json` öffnen → Stift-Symbol → eintragen → „Commit changes“). Die Seite baut sich automatisch neu.
@@ -46,6 +49,8 @@ Diese Schritte kann Claude **nicht** für dich machen (Konten anlegen, persönli
 7. **Google Search Console** (kostenlos): https://search.google.com/search-console – Property „URL-Präfix“ mit deiner Seiten-URL,
    Bestätigung per „HTML-Tag“: nur den `content`-Wert in `config.json` bei `google_site_verification` eintragen und hochladen.
    Danach unter „Sitemaps“ `sitemap.xml` einreichen. Das sorgt dafür, dass Google die Seite schnell findet.
+8. **Bing Webmaster Tools** (kostenlos): https://www.bing.com/webmasters – „Aus Google Search Console importieren“.
+   Bing liefert auch die Ergebnisse von Ecosia, DuckDuckGo und Yahoo.
 
 Optional später: **Google AdSense** (`adsense_client_id`), sobald die Seite Besucher hat. Dafür ist ein Cookie-Einwilligungsbanner nötig (bei AdSense kostenlos einschaltbar); die Datenschutzerklärung ergänzt sich automatisch um einen AdSense-Abschnitt.
 

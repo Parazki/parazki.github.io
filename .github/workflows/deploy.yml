@@ -60,3 +60,9 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+      # Bing, Ecosia, DuckDuckGo & Co. sofort über neue und geänderte Seiten informieren (Google nutzt IndexNow nicht)
+      - uses: actions/checkout@v4
+      - name: Suchmaschinen informieren (IndexNow)
+        continue-on-error: true
+        run: python3 tools/indexnow.py
