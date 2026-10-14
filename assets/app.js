@@ -9,6 +9,10 @@
   const STUNDEN_JAHR = 8760;
   const nachSlug = Object.fromEntries(SF.geraete.map((g) => [g.s, g]));
   const BEWEGUNG_AUS = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Breite der Scrollleiste (Handy: 0) – damit Bühnen in voller Breite nicht unter die Scrollleiste ragen
+  const scrollleiste = () => document.documentElement.style.setProperty("--scrollleiste", (innerWidth - document.documentElement.clientWidth) + "px");
+  scrollleiste();
+  addEventListener("resize", scrollleiste);
   const $ = (sel, el = document) => el.querySelector(sel);
   const $$ = (sel, el = document) => Array.from(el.querySelectorAll(sel));
   // Eigene Illustrationen (assets/bilder/<schlüssel>.svg) statt Emojis
@@ -1174,22 +1178,17 @@
     io.observe(el);
   });
 
-  // ------------------------------------------------ Live-Ticker im Kopfbereich
-  const ticker = $("[data-ticker]");
-  if (ticker && SF.geraete.length && !BEWEGUNG_AUS) {
-    const reihe = SF.geraete.slice().sort(() => Math.random() - 0.5);
-    let i = 0;
-    setInterval(() => {
-      if (document.hidden) return;
-      const g = reihe[i++ % reihe.length];
-      ticker.classList.remove("rein");
-      ticker.classList.add("raus");
-      setTimeout(() => {
-        ticker.textContent = `${g.e} ${g.n} · ${euro(geraetKwh(g) * preis())} im Jahr`;
-        ticker.classList.remove("raus");
-        ticker.classList.add("rein");
-      }, 280);
-    }, 2800);
+  // ------------------------------------------------ Freier Rechner (Startseite): eingeklappt, Links auf #rechner klappen ihn auf
+  const freierRechner = $("details#rechner");
+  const rechnerAufklappen = () => {
+    if (!freierRechner || location.hash !== "#rechner") return;
+    freierRechner.open = true;
+    freierRechner.scrollIntoView({ block: "start", behavior: "instant" }); // sofort – weiches Scrollen bricht beim Laden ab
+  };
+  if (freierRechner) {
+    rechnerAufklappen();
+    addEventListener("hashchange", rechnerAufklappen);
+    addEventListener("load", rechnerAufklappen); // nach dem Laden der Bilder Position nachziehen
   }
 
   // ------------------------------------------------ Konfetti (Quiz-Belohnung)

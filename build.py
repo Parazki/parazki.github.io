@@ -26,8 +26,6 @@ STUNDEN_JAHR = 8760
 MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli",
           "August", "September", "Oktober", "November", "Dezember"]
 KATEGORIEN = ["Küche", "Haushalt", "Heizen & Kühlen", "Unterhaltung", "Büro & Technik", "Licht", "Sonstiges"]
-KATEGORIE_BILD = {"Küche": "kuehlschrank", "Haushalt": "waschmaschine", "Heizen & Kühlen": "heizluefter", "Unterhaltung": "fernseher",
-                  "Büro & Technik": "laptop", "Licht": "led", "Sonstiges": "elektroauto"}
 KATEGORIE_EMOJI = {"Küche": "🍳", "Haushalt": "🧺", "Heizen & Kühlen": "🌡️", "Unterhaltung": "🎮",
                    "Büro & Technik": "💻", "Licht": "💡", "Sonstiges": "✨"}
 # Grobe Richtwerte Jahresverbrauch nach Personen (ohne Warmwasser über Strom), auch in assets/app.js genutzt
@@ -43,7 +41,6 @@ SOLAR_MONATE = [3, 4.5, 8, 11, 13, 13.5, 13.5, 12, 9, 6.5, 3.5, 2.5]
 ALTE_PFADE = ["stromfresser-check"]
 # Öffentlicher IndexNow-Schlüssel (Bing, Ecosia, DuckDuckGo & Co.); muss als <schlüssel>.txt auf der Seite liegen
 INDEXNOW_KEY = "3b6259bd0d4ddf158ce04c0f8651ce9e"
-FAVORITEN = ["kuehlschrank", "heizluefter", "spielkonsole", "durchlauferhitzer", "fernseher", "waschmaschine"]
 
 
 # ---------------------------------------------------------------- Rechnen
@@ -545,15 +542,7 @@ def startseite(ctx, geraete):
     s = Seite(ctx, "")
     preis_txt = zahl(ctx["preis"], 2)
     nach_slug = {g["slug"]: g for g in geraete}
-    favoriten = "".join(
-        f'<a class="chip ripple" href="{s.link("geraet/" + slug + "/")}"><span aria-hidden="true">{nach_slug[slug]["emoji"]}</span>{e(gross(nach_slug[slug]["name"]))}</a>'
-        for slug in FAVORITEN if slug in nach_slug)
-    kategorien = "".join(
-        f'<a class="kategorie-karte ripple" href="{s.link("geraete/")}?kat={quote_plus(k)}"><span class="kk-emoji" aria-hidden="true">{bild(s, KATEGORIE_BILD[k])}</span>'
-        f'<span>{e(k)}</span><small>{sum(1 for g in geraete if g["kategorie"] == k)} Geräte</small></a>'
-        for k in KATEGORIEN if any(g["kategorie"] == k for g in geraete))
-    top = sorted(geraete, key=jahresverbrauch_kwh, reverse=True)[0]
-    ticker_start = f"{top['emoji']} {gross(top['name'])} · {euro(jahresverbrauch_kwh(top) * ctx['preis'])} im Jahr"
+    nach_artikel = {a["slug"]: a for a in ARTIKEL}
     fragen = [
         ("Wie berechne ich die Stromkosten eines Geräts?",
          "Leistung in Watt × Betriebsstunden ÷ 1000 ergibt die Kilowattstunden (kWh). Multipliziert mit deinem Strompreis pro kWh erhältst du die Kosten. "
@@ -572,17 +561,12 @@ def startseite(ctx, geraete):
         for i, slug in enumerate(galerie_slugs) if slug in nach_slug)
     inhalt = f"""
 <section class="held">
-  <p class="held-marke">{icon('bolt')} Kostenlos · ohne Anmeldung · {len(geraete)} Geräte</p>
   <h1>Stromkosten berechnen.<br><span class="held-verlauf">Ganz einfach.</span></h1>
-  <p class="lead">Finde die Stromfresser in deinem Zuhause – mit Rechnern, Spartipps und deinem persönlichen Haushalts-Check.</p>
+  <p class="lead">Finde die Stromfresser in deinem Zuhause – kostenlos und ohne Anmeldung.</p>
   <div class="held-aktionen">
     <a class="knopf knopf-gefuellt knopf-gross ripple" href="{s.link('werkzeuge/spar-check/')}">Spar-Check starten</a>
-    <a class="knopf knopf-text knopf-gross" href="{s.link('geraete/')}">Alle Geräte{icon('chevron')}</a>
+    <a class="knopf knopf-text knopf-gross" href="{s.link('geraete/')}">Alle {len(geraete)} Geräte{icon('chevron')}</a>
   </div>
-  <form class="suchleiste" action="{s.link('geraete/')}" method="get" role="search">
-    {icon('search')}<input type="search" name="q" placeholder="Gerät suchen, z. B. Kühlschrank" aria-label="Gerät suchen" autocomplete="off">
-  </form>
-  <div class="ticker" aria-hidden="true"><span class="ticker-punkt"></span><span class="ticker-fenster"><span class="ticker-text" data-ticker>{ticker_start}</span></span></div>
 </section>
 <div class="galerie" aria-label="Beliebte Geräte">{galerie}</div>
 
@@ -598,18 +582,6 @@ def startseite(ctx, geraete):
   <div class="mb-block"><span class="overline">Für dich</span><div class="karussell mb-empfehlungen" data-mb-empfehlungen></div></div>
   <div class="mb-block"><span class="overline">Deine Abzeichen</span><div class="abzeichen-reihe" data-abzeichen></div></div>
 </section>
-<aside class="personalisieren-karte" data-personalisieren hidden>
-  <span class="pk-emoji" aria-hidden="true">👋</span>
-  <div><strong>Mach die Seite zu deiner</strong><p>Sag uns kurz, wie du wohnst – dann passen sich Rechner, Tipps und Empfehlungen an deinen Haushalt an.</p></div>
-  <button class="knopf knopf-gefuellt ripple" type="button" data-profil-oeffnen>Profil anlegen</button>
-</aside>
-
-<aside class="install-karte" data-install-karte hidden>
-  <span class="ik-icon">{icon('bolt')}</span>
-  <div><strong>Als App installieren</strong><p>Direkt vom Startbildschirm öffnen – auch offline.</p></div>
-  <button class="knopf knopf-gefuellt ripple" type="button" data-installieren-karte>Installieren</button>
-</aside>
-
 <section class="abschnitt">
   <div class="abschnitt-kopf"><div><span class="overline">Werkzeuge</span><h2>Alles, was du zum Sparen brauchst.</h2></div></div>
   {bento(s)}
@@ -622,41 +594,39 @@ def startseite(ctx, geraete):
 
 {haus_story(s, ctx)}
 
-<section class="statement" aria-label="Standby in Zahlen">
-  <p class="statement-zeile">1 Watt.</p>
-  <p class="statement-zeile">Rund um die Uhr.</p>
-  <p class="statement-zeile statement-verlauf">{euro(8.76 * ctx['preis'])} im Jahr.</p>
-  <p class="statement-unter">So viel kostet jedes Watt Standby. <a href="{s.link('werkzeuge/standby/')}">Was kostet dein Standby?</a></p>
-</section>
-
 <section class="abschnitt">
   <div class="abschnitt-kopf"><div><span class="overline">Ranking</span><h2>Die größten Stromfresser.</h2></div><a class="knopf knopf-text" href="{s.link('geraete/')}">Alle {len(geraete)}{icon('chevron')}</a></div>
   <p class="unterzeile">Typische Jahreskosten bei <span data-preis-anzeige>{preis_txt} €/kWh</span></p>
-  {rangliste(s, geraete, anzahl=8)}
+  {rangliste(s, geraete, anzahl=5)}
 </section>
 
 <section class="abschnitt">
   <div class="abschnitt-kopf"><div><span class="overline">Spar-Helfer</span><h2>Kleine Helfer. Große Wirkung.</h2></div><a class="knopf knopf-text" href="{s.link('spar-produkte/')}">Alle{icon('chevron')}</a></div>
-  <div class="karussell produkt-karussell">{''.join(produkt_kachel(s, p) for p in SPAR_PRODUKTE[:6])}</div>
+  <div class="karussell produkt-karussell">{''.join(produkt_kachel(s, p) for p in SPAR_PRODUKTE[:4])}</div>
 </section>
 
 <section class="abschnitt">
   <div class="abschnitt-kopf"><div><span class="overline">Wissen</span><h2>Strom verstehen.</h2></div><a class="knopf knopf-text" href="{s.link('wissen/')}">Alle Ratgeber{icon('chevron')}</a></div>
-  <div class="karussell">{''.join(artikel_karte(s, a) for a in ARTIKEL)}</div>
+  <div class="karussell">{''.join(artikel_karte(s, nach_artikel[k]) for k in ("strom-sparen", "standby", "stromverbrauch-haushalt", "watt-und-kwh") if k in nach_artikel)}</div>
 </section>
 
-<section class="abschnitt">
-  <span class="overline">Entdecken</span>
-  <h2>Nach Bereich stöbern.</h2>
-  <div class="kategorie-raster">{kategorien}</div>
-</section>
+<aside class="personalisieren-karte" data-personalisieren hidden>
+  <span class="pk-emoji" aria-hidden="true">👋</span>
+  <div><strong>Mach die Seite zu deiner</strong><p>Sag uns kurz, wie du wohnst – dann passen sich Rechner, Tipps und Empfehlungen an deinen Haushalt an.</p></div>
+  <button class="knopf knopf-gefuellt ripple" type="button" data-profil-oeffnen>Profil anlegen</button>
+</aside>
 
-<section class="abschnitt" id="rechner">
-  <span class="overline">Selbst rechnen</span>
-  <h2>Freier Stromkosten-Rechner.</h2>
-  <p class="unterzeile">Die Leistung steht auf dem Typenschild oder in der Anleitung.</p>
+<aside class="install-karte" data-install-karte hidden>
+  <span class="ik-icon">{icon('bolt')}</span>
+  <div><strong>Als App installieren</strong><p>Direkt vom Startbildschirm öffnen – auch offline.</p></div>
+  <button class="knopf knopf-gefuellt ripple" type="button" data-installieren-karte>Installieren</button>
+</aside>
+
+<details class="aufklapp-rechner" id="rechner">
+  <summary><span class="emoji-kreis" aria-hidden="true">{bild(s, "messgeraet")}</span>
+    <span><strong>Dein Gerät ist nicht dabei?</strong><small>Mit eigener Watt-Zahl und Laufzeit selbst berechnen</small></span>{icon('chevron', 'ic aufklapp-pfeil')}</summary>
   {rechner_form(ctx)}
-</section>
+</details>
 
 {faq_html(fragen)}
 """
@@ -747,15 +717,15 @@ def geraeteseite(ctx, g, geraete):
 </section>
 <div class="persoenlich" data-persoenlich hidden></div>
 {rechner_form(ctx, g, s)}
-<p class="empfehlung-titel">Passend dazu</p>
-{produkt_karte(s, p['label'], p['text'], p['query'], produkt_bild(p['label']))}
-<div class="hinweis-karte">{icon('info')}<p><strong>Annahme:</strong> {e(g['hinweis'])} Passe die Regler an dein Gerät an.</p></div>
-<div class="knopf-reihe"><a class="knopf knopf-tonal ripple" href="{s.link('werkzeuge/vergleich/')}?a={g['slug']}">⚖️ Mit anderem Gerät vergleichen</a></div>
+<p class="annahme"><strong>Annahme:</strong> {e(g['hinweis'])} Passe die Regler an dein Gerät an.
+<a href="{s.link('werkzeuge/vergleich/')}?a={g['slug']}">Mit anderem Gerät vergleichen</a></p>
 <section class="abschnitt">
   <div class="tipp-karte">
     <div class="tipp-kopf">{icon('bulb')}<h2>So sparst du Strom</h2></div>
     <p>{e(g['tipp'])}</p>
   </div>
+  <p class="empfehlung-titel">Passend dazu</p>
+  {produkt_karte(s, p['label'], p['text'], p['query'], produkt_bild(p['label']))}
 </section>
 <section class="abschnitt">
   <span class="overline">Vergleich</span>
@@ -768,7 +738,6 @@ def geraeteseite(ctx, g, geraete):
   <h2>Ähnlich teuer</h2>
   <div class="karussell">{''.join(geraet_karte(s, x) for x in weitere)}</div>
 </section>
-{messgeraet_karte(s)}
 {faq_html(fragen)}
 """
     titel = f"{gross(name)}: Stromverbrauch & Kosten {ctx['jahr']}"
@@ -1106,7 +1075,6 @@ def bento(s):
         teil("werkzeuge/zaehlerstand/", "Zählerstand", "Droht eine Nachzahlung?", "Verbrauch aus zwei Ablesungen hochrechnen.", ["stromzaehler"]),
         teil("werkzeuge/standby/", "Standby", "Was kostet „aus“?", "Geräte, die nie ganz schlafen.", ["leiste"]),
         teil("werkzeuge/e-auto/", "E-Auto", "Was kostet das Laden?", "Zu Hause, Ladesäule oder Verbrenner?", ["elektroauto"], "bento-mobil-breit"),
-        teil("quiz/", "Quiz", "Was kostet mehr?", "Konsole oder Wasserkocher – teste dein Gefühl.", ["spielkonsole", "wasserkocher"], "bento-breit"),
     ]) + "</div>"
 
 
