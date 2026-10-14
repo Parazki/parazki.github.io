@@ -1084,19 +1084,31 @@ def leuchttext(teile):
     return f'<section class="leuchttext" data-leuchttext><p>{" ".join(woerter)}</p></section>'
 
 
+def _quad_punkt(ecken, u, v):
+    """Punkt in einem Viereck (oben links, oben rechts, unten rechts, unten links) – u nach rechts, v nach unten."""
+    (x1, y1), (x2, y2), (x3, y3), (x4, y4) = ecken
+    ox, oy = x1 + (x2 - x1) * u, y1 + (y2 - y1) * u
+    ux, uy = x4 + (x3 - x4) * u, y4 + (y3 - y4) * u
+    return ox + (ux - ox) * v, oy + (uy - oy) * v
+
+
+def _quad(ecken, u0, v0, u1, v1):
+    return " ".join(f"{x:.1f},{y:.1f}" for x, y in (_quad_punkt(ecken, u0, v0), _quad_punkt(ecken, u1, v0),
+                                                     _quad_punkt(ecken, u1, v1), _quad_punkt(ecken, u0, v1)))
+
+
 def haus_story(s, ctx):
     """Haus-Szene: Alles hängt stufenlos am Scroll-Fortschritt --p (0…1), ohne teure Filter.
 
-    Drei Ebenen mit gleichem Koordinatensystem: Himmel (Sterne, Mond), Haus (zeichnet sich, Räume leuchten nacheinander auf,
-    Zähler läuft hoch) und Stromfluss (Lichtpunkte im Kabel). --s = Fortschritt, ab dem ein Raum Strom bekommt.
+    Ebenen mit gleichem Koordinatensystem: Himmel (Sterne, Mond, Sternschnuppe), Haus (zeichnet sich, Räume leuchten
+    nacheinander auf, Zähler läuft hoch) und Leben (Strom, Rauch, laufende Geräte). --s = Fortschritt, ab dem ein Raum Strom bekommt.
     """
     gesamt = HAUSHALT_SCHNITT[2]
     b = lambda key: s.link(f"assets/bilder/{key}.svg")
     sterne = "".join(f'<circle class="hs-stern" cx="{x}" cy="{y}" r="{r}" style="--d:{d}s"/>'
                      for x, y, r, d in ((30, 30, 1.2, 0), (78, 52, .9, 1.1), (120, 22, 1.1, .4), (240, 34, 1, 1.6), (300, 18, 1.3, .8),
                                         (352, 86, .9, 2.1), (384, 24, 1.1, 1.3), (200, 12, .8, .2), (160, 40, .7, 2.6), (20, 92, 1, .6),
-                                        (276, 52, .8, 1.9), (60, 12, .9, 2.3)))
-    # Linien zeichnen sich nacheinander: --a = Start, --l = Dauer (Anteil der Strecke)
+                                        (276, 52, .8, 1.9), (60, 12, .9, 2.3), (100, 70, .6, 1.4), (218, 58, .6, .9), (392, 60, .7, 2.8)))
     linien = "".join(f'<path class="hs-linie{" " + k if k else ""}" pathLength="1" style="--a:{a};--l:{l}" d="{d}"/>' for k, a, l, d in (
         ("hs-boden", 0, .07, "M10 262 H390"),
         ("", .03, .09, "M72 262 V146 H288 V262"),
@@ -1106,9 +1118,13 @@ def haus_story(s, ctx):
     ))
     raeume = "".join(f'''<g class="hs-raum" style="--s:{start}">
     <rect class="hs-schein" x="{x - 16}" y="{y - 16}" width="{w + 32}" height="{h + 32}" rx="24"/>
-    <rect class="hs-grund" x="{x}" y="{y}" width="{w}" height="{h}" rx="7"/>
-    <rect class="hs-licht" x="{x}" y="{y}" width="{w}" height="{h}" rx="7"/>
+    <rect class="hs-grund" x="{x}" y="{y}" width="{w}" height="{h}" rx="5"/>
+    <rect class="hs-licht" x="{x}" y="{y}" width="{w}" height="{h}" rx="5"/>
     <image class="hs-geraet" href="{b(bild)}" x="{bx}" y="{by}" width="{g}" height="{g}"/>
+    <path class="hs-spiegelung" d="M{x + 4} {y + h - 4} L{x + 18} {y + 4} H{x + 26} L{x + 12} {y + h - 4} Z"/>
+    <rect class="hs-rahmen" x="{x}" y="{y}" width="{w}" height="{h}" rx="5"/>
+    <path class="hs-sprosse" d="M{x} {y + 11} H{x + w}"/>
+    <rect class="hs-bank" x="{x - 4}" y="{y + h}" width="{w + 8}" height="3" rx="1.5"/>
   </g>''' for x, y, w, h, bild, bx, by, g, start in (
         (86, 158, 74, 42, "kuehlschrank", 104, 160, 38, .30),
         (200, 158, 74, 42, "fernseher", 218, 160, 38, .52),
@@ -1118,15 +1134,25 @@ def haus_story(s, ctx):
     kabel = "M353 206 V246 H288"
     punkte = "".join(f'<g class="hs-punkt"><circle r="6.5" class="hs-punkt-hof"/><circle r="2.8"/>'
                      f'<animateMotion dur="1.6s" begin="{t}s" repeatCount="indefinite" path="{kabel}"/></g>' for t in (0, .4, .8, 1.2))
+    rauch = "".join(f'<circle class="hs-rauch" cx="261" cy="74" r="4" style="--d:{d}s"/>' for d in (0, 1.3, 2.6))
+    baum = ('<rect class="hs-stamm" x="37" y="214" width="6" height="48" rx="2"/>'
+            + "".join(f'<ellipse class="hs-blatt" cx="{x}" cy="{y}" rx="{rx}" ry="{ry}"/>' for x, y, rx, ry in
+                      ((40, 196, 24, 22), (26, 210, 15, 13), (55, 208, 15, 14), (40, 180, 17, 15))))
+    busch = "".join(f'<ellipse class="hs-busch" cx="{x}" cy="{y}" rx="{rx}" ry="{ry}"/>' for x, y, rx, ry in
+                    ((304, 255, 14, 9), (322, 257, 12, 7), (78, 257, 9, 6), (150, 258, 10, 5)))
     bild = f'''<div class="haus-bild">
 <svg class="hs-himmel" viewBox="0 0 400 290" aria-hidden="true">
   <defs>
     <radialGradient id="hs-mondschein"><stop offset="0" stop-color="#f5f5f7" stop-opacity=".35"/><stop offset="1" stop-color="#f5f5f7" stop-opacity="0"/></radialGradient>
     <radialGradient id="hs-horizont" cx="50%" cy="100%" r="100%"><stop offset="0" stop-color="#ff9f0a" stop-opacity=".26"/><stop offset=".7" stop-color="#ff9f0a" stop-opacity=".06"/><stop offset="1" stop-color="#ff9f0a" stop-opacity="0"/></radialGradient>
+    <linearGradient id="hs-schnuppe" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff"/></linearGradient>
   </defs>
   <ellipse class="hs-horizont" cx="190" cy="262" rx="185" ry="110" fill="url(#hs-horizont)"/>
   <g class="hs-sterne">{sterne}</g>
-  <circle cx="342" cy="44" r="34" fill="url(#hs-mondschein)"/><circle class="hs-mond" cx="342" cy="44" r="13"/>
+  <path class="hs-schnuppe" pathLength="1" d="M70 20 L150 52" stroke="url(#hs-schnuppe)"/>
+  <circle cx="342" cy="44" r="34" fill="url(#hs-mondschein)"/>
+  <circle class="hs-mond" cx="342" cy="44" r="13"/>
+  <circle class="hs-krater" cx="337" cy="40" r="2.6"/><circle class="hs-krater" cx="346" cy="49" r="1.8"/><circle class="hs-krater" cx="347" cy="38" r="1.2"/>
 </svg>
 <svg class="hs-haus" viewBox="0 0 400 290" aria-hidden="true">
   <defs>
@@ -1134,14 +1160,37 @@ def haus_story(s, ctx):
     <radialGradient id="hs-schein"><stop offset=".35" stop-color="#ffc94a" stop-opacity=".55"/><stop offset="1" stop-color="#ffc94a" stop-opacity="0"/></radialGradient>
     <radialGradient id="hs-licht" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="#fff1c4"/><stop offset=".6" stop-color="#ffd27a"/><stop offset="1" stop-color="#ffad33"/></radialGradient>
     <linearGradient id="hs-dachlicht" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd60a"/><stop offset="1" stop-color="#ff9f0a"/></linearGradient>
+    <linearGradient id="hs-dachgrund" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#23232a"/><stop offset="1" stop-color="#141418"/></linearGradient>
+    <linearGradient id="hs-wandlicht" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2a14"/><stop offset="1" stop-color="#1c140a"/></linearGradient>
+    <linearGradient id="hs-boden" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#101a12"/><stop offset="1" stop-color="#000"/></linearGradient>
+    <radialGradient id="hs-laterne" cx="50%" cy="20%" r="80%"><stop offset="0" stop-color="#ffd27a" stop-opacity=".55"/><stop offset="1" stop-color="#ffd27a" stop-opacity="0"/></radialGradient>
+    <radialGradient id="hs-blatt" cx="40%" cy="30%" r="80%"><stop offset="0" stop-color="#2e5a34"/><stop offset="1" stop-color="#0c1a0f"/></radialGradient>
+    <linearGradient id="hs-tuerholz" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3a2618"/><stop offset="1" stop-color="#24170e"/></linearGradient>
+    <pattern id="hs-ziegel" width="12" height="7" patternUnits="userSpaceOnUse"><path d="M0 7 Q3 3.5 6 7 Q9 3.5 12 7" fill="none" stroke="#fff" stroke-width=".6"/></pattern>
+    <pattern id="hs-putz" width="216" height="6" patternUnits="userSpaceOnUse"><path d="M0 5.5 H216" stroke="#fff" stroke-width=".4"/></pattern>
+    <linearGradient id="hs-post" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3a3a3c"/><stop offset=".5" stop-color="#6e6e73"/><stop offset="1" stop-color="#2c2c2e"/></linearGradient>
   </defs>
   <ellipse class="hs-glut" cx="180" cy="196" rx="190" ry="120" fill="url(#hs-glut)"/>
-  <polygon class="hs-dach" points="54,150 180,64 306,150"/>
+  <rect class="hs-wiese" x="0" y="262" width="400" height="28" fill="url(#hs-boden)"/>
+  <path class="hs-weg" d="M166 262 H194 L206 290 H154 Z"/>
+  <g class="hs-garten">{baum}{busch}</g>
+  <polygon class="hs-dach" points="54,150 180,64 306,150" fill="url(#hs-dachgrund)"/>
+  <polygon class="hs-ziegel" points="54,150 180,64 306,150" fill="url(#hs-ziegel)"/>
   <polygon class="hs-dach-licht" points="54,150 180,64 306,150" fill="url(#hs-dachlicht)"/>
+  <rect class="hs-kamin" x="250" y="80" width="22" height="45" fill="url(#hs-dachgrund)"/>
   <rect class="hs-wand" x="72" y="146" width="216" height="116"/>
+  <rect class="hs-wand-licht" x="72" y="146" width="216" height="116" fill="url(#hs-wandlicht)"/>
+  <rect class="hs-putz" x="72" y="146" width="216" height="116" fill="url(#hs-putz)"/>
+  <path class="hs-traufe" d="M50 150 H310"/>
   {raeume}
   <g class="hs-raum hs-router" style="--s:.36"><image class="hs-geraet" href="{b('wlan-router')}" x="250" y="230" width="22" height="22"/></g>
+  <path class="hs-tuerblatt" d="M164 262 V216 Q180 206 196 216 V262 Z" fill="url(#hs-tuerholz)"/>
+  <circle class="hs-knauf" cx="190" cy="240" r="1.4"/>
+  <ellipse class="hs-laternenlicht" cx="204" cy="236" rx="20" ry="30" fill="url(#hs-laterne)"/>
+  <rect class="hs-laterne" x="202" y="219" width="4" height="6" rx="1"/>
+  <path class="hs-leitung" pathLength="1" d="M288 240 V206 H86"/>
   {linien}
+  <rect class="hs-post" x="350" y="206" width="6" height="56" fill="url(#hs-post)"/>
   <path class="hs-kabel" pathLength="1" d="{kabel}"/>
   <path class="hs-strom" pathLength="1" d="{kabel}"/>
   <g class="hs-zaehler">
@@ -1153,7 +1202,12 @@ def haus_story(s, ctx):
   </g>
 </svg>
 <svg class="hs-fluss" viewBox="0 0 400 290" aria-hidden="true">
-  {punkte}
+  <g class="hs-rauchsaeule">{rauch}</g>
+  <g class="hs-leben" style="--s:.36"><path class="hs-wlan" d="M255.5 228 Q261 223 266.5 228 M252.5 225 Q261 217 269.5 225" style="--d:0s"/></g>
+  <g class="hs-leben" style="--s:.52"><rect class="hs-bildschirm" x="221.6" y="166.7" width="30.8" height="19.4" rx="1"/></g>
+  <g class="hs-leben" style="--s:.58"><g class="hs-trommel"><circle cx="121.3" cy="237.2" r="2.2" fill="#0a84ff"/><circle cx="116.8" cy="234.6" r="1.7" fill="#ff9f0a"/><circle cx="118.8" cy="239.4" r="1.4" fill="#ff375f"/></g></g>
+  <g class="hs-leben" style="--s:.64"><rect class="hs-laptop-licht" x="220" y="222" width="22" height="14.4" rx=".8"/></g>
+  <g class="hs-punkte">{punkte}</g>
   <rect class="hs-puls" x="322" y="146" width="62" height="60" rx="12"/>
 </svg>
 </div>'''
@@ -1169,20 +1223,163 @@ def haus_story(s, ctx):
 
 
 def solar_story(s, ertrag, ersparnis):
-    bild = f'''<svg class="solar-svg" viewBox="0 0 360 270">
-  <defs><linearGradient id="himmel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="himmel-oben"/><stop offset="1" class="himmel-unten"/></linearGradient></defs>
-  <rect class="himmel" x="0" y="0" width="360" height="250" rx="18" fill="url(#himmel)"/>
-  <g class="sonne"><circle cx="180" cy="62" r="20"/><g class="strahlen"><path d="M180 30v-10M180 104v10M148 62h-10M212 62h10M157 39l-7-7M203 85l7 7M157 85l-7 7M203 39l7-7"/></g></g>
-  <line class="boden" x1="0" y1="250" x2="360" y2="250"/>
-  <g class="modul"><polygon points="40,206 128,186 140,232 52,252"/>
-    <path class="zellen" d="M62 201l12 46M84 196l12 46M106 191l12 46M46 222l88-20"/></g>
-  <path class="kabel" d="M136 228 H178 M206 228 H246"/>
-  <g class="wechselrichter"><rect x="178" y="212" width="28" height="32" rx="6"/><text x="192" y="233">~</text></g>
-  <polygon class="dach" points="236,150 288,112 340,150"/>
-  <rect class="hauswand" x="246" y="146" width="84" height="104" rx="6"/>
-  <rect class="fenster" x="262" y="166" width="52" height="40" rx="5"/><image class="raum-emoji" href="{s.link('assets/bilder/kuehlschrank.svg')}" x="270" y="168" width="36" height="36"/>
-  <text class="solar-zahl" x="288" y="236" data-story-zahl="{round(ertrag)}">{zahl(ertrag)} kWh</text>
-</svg>'''
+    """Balkonkraftwerk-Szene: Sonnenaufgang über der Stadt, Licht trifft das Modul, Strom fließt über den Wechselrichter
+    in die Küche. Wie die Haus-Szene stufenlos über --p gesteuert; Wolken und Sonnenstrahlen drehen sich auf eigenen Ebenen."""
+    # Solarmodul (perspektivisch) und seine Glasfläche
+    modul = ((30, 128), (166, 104), (184, 214), (48, 238))
+    glas = tuple(_quad_punkt(modul, u, v) for u, v in ((.025, .03), (.975, .03), (.975, .97), (.025, .97)))
+    zellen = "".join(f'<polygon class="ss-zelle" points="{_quad(glas, c / 6 + .006, r / 10 + .008, (c + 1) / 6 - .006, (r + 1) / 10 - .008)}"/>'
+                     for r in range(10) for c in range(6))
+    busbars = "".join(f'<path class="ss-busbar" d="M{_quad_punkt(glas, u, 0)[0]:.1f} {_quad_punkt(glas, u, 0)[1]:.1f} '
+                      f'L{_quad_punkt(glas, u, 1)[0]:.1f} {_quad_punkt(glas, u, 1)[1]:.1f}"/>'
+                      for c in range(6) for u in (c / 6 + 1 / 18, c / 6 + 2 / 18))
+    glas_punkte = " ".join(f"{x:.1f},{y:.1f}" for x, y in glas)
+    modul_punkte = " ".join(f"{x},{y}" for x, y in modul)
+    # Ferne Skyline mit Fenstern, die bei Tag ausgehen
+    haeuser = [(0, 40, 54), (36, 28, 38), (60, 34, 70), (92, 22, 46), (112, 30, 60), (140, 26, 40), (164, 36, 76), (198, 20, 50)]
+    skyline = "".join(f'<rect x="{x}" y="{232 - h}" width="{w}" height="{h + 60}"/>' for x, w, h in haeuser)
+    stadtfenster = "".join(f'<rect x="{x + 4 + (i % 3) * (w - 10) / 2:.1f}" y="{232 - h + 8 + (i // 3) * 9}" width="2.4" height="3.2"/>'
+                           for k, (x, w, h) in enumerate(haeuser) for i in range(min(9, 3 * (h // 18))) if (i * 7 + k * 3) % 4 != 0)
+    sterne = "".join(f'<circle cx="{x}" cy="{y}" r="{r}"/>' for x, y, r in
+                     ((24, 22, 1), (70, 40, .8), (118, 16, 1.1), (180, 30, .7), (230, 14, .9), (268, 44, .7), (312, 20, 1), (366, 36, .8),
+                      (150, 58, .6), (390, 12, .7), (46, 70, .6), (206, 66, .6)))
+    wolke = "M0 0 a12 12 0 0 1 10 -13 a17 17 0 0 1 31 -8 a14 14 0 0 1 26 6 a11 11 0 0 1 6 15 z"
+    wolken = "".join(f'<path class="ss-wolke" d="{wolke}" transform="translate({x} {y}) scale({g})" style="--o:{o}"/>'
+                     for x, y, g, o in ((40, 70, 1.2, .9), (210, 46, .9, .75), (330, 92, 1.4, .85), (450, 60, 1, .8), (120, 120, .7, .6)))
+    strahlen = "".join(f'<path d="M60 {60 - innen} V{60 - aussen}" transform="rotate({w} 60 60)"/>'
+                       for w, innen, aussen in ((i * 30, 21, 33 if i % 2 else 39) for i in range(12)))
+    # Lichterkette am Geländer (Bogen) – leuchtet am Ende mit dem eigenen Solarstrom
+    birnen = []
+    for i in range(16):
+        t = i / 15
+        x = (1 - t) ** 2 * 16 + 2 * (1 - t) * t * 158 + t ** 2 * 300
+        y = (1 - t) ** 2 * 199 + 2 * (1 - t) * t * 213 + t ** 2 * 199 + 2.5
+        birnen.append((x, y, (i * 37) % 10 / 10))
+    birnen_aus = "".join(f'<circle class="ss-birne" cx="{x:.1f}" cy="{y:.1f}" r="1.7"/>' for x, y, _ in birnen)
+    # Leuchtende Birnen liegen in der oberen Ebene – die hinter dem Modul bleiben dort weg
+    birnen_an = "".join(f'<g class="ss-birne-an" style="--d:{d * 2.4:.2f}s"><circle cx="{x:.1f}" cy="{y:.1f}" r="5" class="ss-birne-hof"/>'
+                        f'<circle cx="{x:.1f}" cy="{y:.1f}" r="1.8"/></g>' for x, y, d in birnen if not 38 < x < 188)
+    staebe = "".join(f'<rect x="{x}" y="199" width="1.6" height="41"/>' for x in range(16, 302, 8))
+    max_monat = max(SOLAR_MONATE)
+    monatsbalken = "".join(f'<rect class="ss-monat" x="{108 + i * 4}" y="{72 - a / max_monat * 22:.1f}" width="2.6" height="{a / max_monat * 22:.1f}" rx="1" style="--i:{i}"/>'
+                           for i, a in enumerate(SOLAR_MONATE))
+    photonen = "".join(f'<circle class="ss-photon" r="1.8"><animateMotion dur="1.3s" begin="{t}s" repeatCount="indefinite" path="M150 54 L{zx} {zy}"/></circle>'
+                       for t, (zx, zy) in zip((0, .33, .66, .99, .5), ((84, 168), (112, 160), (138, 152), (98, 196), (126, 186))))
+    funken = "".join(f'<path class="ss-funke" d="M{x} {y - 4} L{x + 1} {y - 1} L{x + 4} {y} L{x + 1} {y + 1} L{x} {y + 4} L{x - 1} {y + 1} L{x - 4} {y} L{x - 1} {y - 1} Z" style="--d:{d}s"/>'
+                     for x, y, d in ((76, 146, 0), (132, 136, .7), (110, 196, 1.4), (154, 176, 2.1)))
+    kueche = s.link("assets/bilder/kuehlschrank.svg")
+    bild = f'''<div class="solar-bild"><div class="ss-kamera">
+<svg class="ss-himmel" viewBox="0 0 400 290" preserveAspectRatio="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="ss-nacht" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#050816"/><stop offset=".7" stop-color="#131b3a"/><stop offset="1" stop-color="#2a2d52"/></linearGradient>
+    <linearGradient id="ss-tag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b78db"/><stop offset=".6" stop-color="#7ab6f3"/><stop offset="1" stop-color="#d9ecff"/></linearGradient>
+    <radialGradient id="ss-morgen" cx="18%" cy="92%" r="75%"><stop offset="0" stop-color="#ffb070" stop-opacity=".95"/><stop offset=".45" stop-color="#ff6f91" stop-opacity=".35"/><stop offset="1" stop-color="#ff6f91" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="400" height="290" fill="url(#ss-nacht)"/>
+  <rect class="ss-tag" width="400" height="290" fill="url(#ss-tag)"/>
+  <rect class="ss-morgen" width="400" height="290" fill="url(#ss-morgen)"/>
+  <g class="ss-sterne">{sterne}</g>
+</svg>
+<div class="ss-sonne">
+  <svg viewBox="0 0 120 120" aria-hidden="true">
+    <defs>
+      <radialGradient id="ss-korona"><stop offset=".18" stop-color="#fff6d6" stop-opacity=".95"/><stop offset=".3" stop-color="#ffd60a" stop-opacity=".45"/><stop offset="1" stop-color="#ff9f0a" stop-opacity="0"/></radialGradient>
+      <radialGradient id="ss-kern" cx="42%" cy="40%" r="60%"><stop offset="0" stop-color="#fffdf2"/><stop offset=".55" stop-color="#ffe066"/><stop offset="1" stop-color="#ffb020"/></radialGradient>
+    </defs>
+    <circle cx="60" cy="60" r="60" fill="url(#ss-korona)"/>
+    <circle cx="60" cy="60" r="15" fill="url(#ss-kern)"/>
+  </svg>
+  <svg class="ss-strahlen" viewBox="0 0 120 120" aria-hidden="true">{strahlen}</svg>
+</div>
+<svg class="ss-wolken" viewBox="0 0 520 290" aria-hidden="true">
+  <defs><linearGradient id="ss-wolke" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cbd8ea"/></linearGradient></defs>
+  {wolken}
+</svg>
+<svg class="ss-szene" viewBox="0 0 400 290" preserveAspectRatio="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="ss-dunst" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b8cbe2"/><stop offset="1" stop-color="#8ea6c4"/></linearGradient>
+    <linearGradient id="ss-fassade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f2ece2"/><stop offset="1" stop-color="#d3c9ba"/></linearGradient>
+    <linearGradient id="ss-glas-tag" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a9d2f7"/><stop offset=".55" stop-color="#5d93cf"/><stop offset="1" stop-color="#2e5f9a"/></linearGradient>
+    <linearGradient id="ss-metall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7d838d"/><stop offset=".45" stop-color="#3d424b"/><stop offset="1" stop-color="#25282e"/></linearGradient>
+    <linearGradient id="ss-beton" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9dde2"/><stop offset="1" stop-color="#9aa1aa"/></linearGradient>
+    <linearGradient id="ss-schatten" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity=".45"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>
+    <linearGradient id="ss-rahmen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1f3f5"/><stop offset=".5" stop-color="#b9bfc7"/><stop offset="1" stop-color="#8e959f"/></linearGradient>
+    <linearGradient id="ss-zelle" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#21488a"/><stop offset=".5" stop-color="#0f2a5c"/><stop offset="1" stop-color="#1a3f7c"/></linearGradient>
+    <linearGradient id="ss-glanz" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <linearGradient id="ss-energie" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#64d2ff" stop-opacity=".7"/><stop offset="1" stop-color="#0a84ff" stop-opacity=".25"/></linearGradient>
+    <linearGradient id="ss-strahl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff2b0" stop-opacity=".5"/><stop offset="1" stop-color="#fff2b0" stop-opacity="0"/></linearGradient>
+    <radialGradient id="ss-kueche" cx="50%" cy="30%" r="80%"><stop offset="0" stop-color="#fff1c4"/><stop offset=".7" stop-color="#ffc56b"/><stop offset="1" stop-color="#e8902c"/></radialGradient>
+    <radialGradient id="ss-blatt" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#62d17a"/><stop offset="1" stop-color="#1d6b34"/></radialGradient>
+    <linearGradient id="ss-topf" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e0855a"/><stop offset="1" stop-color="#a4502c"/></linearGradient>
+    <linearGradient id="ss-wr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a5f68"/><stop offset="1" stop-color="#2a2d33"/></linearGradient>
+    <pattern id="ss-putz" width="186" height="9" patternUnits="userSpaceOnUse"><path d="M0 8.5 H186" stroke="#000" stroke-width=".5"/></pattern>
+    <clipPath id="ss-modul-clip"><polygon points="{glas_punkte}"/></clipPath>
+  </defs>
+  <g class="ss-stadt"><g class="ss-stadt-nacht">{skyline}</g><g class="ss-stadt-tag" fill="url(#ss-dunst)">{skyline}</g><g class="ss-stadtfenster">{stadtfenster}</g></g>
+  <g class="ss-strahlengang"><polygon points="150,54 46,166 90,204" fill="url(#ss-strahl)"/><polygon points="150,54 110,150 170,188" fill="url(#ss-strahl)"/></g>
+  <rect class="ss-fassade-nacht" x="214" y="0" width="186" height="290"/>
+  <rect class="ss-fassade" x="214" y="0" width="186" height="290" fill="url(#ss-fassade)"/>
+  <rect class="ss-putz" x="214" y="0" width="186" height="290" fill="url(#ss-putz)"/>
+  <rect class="ss-kante" x="214" y="0" width="4" height="290"/>
+  <g class="ss-fenster">
+    <rect class="ss-fr" x="236" y="26" width="56" height="60" rx="2"/><rect class="ss-fr" x="322" y="26" width="56" height="60" rx="2"/>
+    <rect class="ss-glas" x="239" y="29" width="50" height="54"/><rect class="ss-glas" x="325" y="29" width="50" height="54"/>
+    <path class="ss-sprosse" d="M264 29 V83 M350 29 V83 M239 52 H289 M325 52 H375"/>
+    <rect class="ss-bank" x="232" y="86" width="64" height="4" rx="1"/><rect class="ss-bank" x="318" y="86" width="64" height="4" rx="1"/>
+    <rect class="ss-fr" x="232" y="124" width="64" height="124" rx="2"/>
+    <rect class="ss-glas" x="236" y="128" width="56" height="118"/>
+    <path class="ss-sprosse" d="M264 128 V246"/>
+    <rect class="ss-fr" x="318" y="124" width="64" height="74" rx="2"/>
+    <rect class="ss-kueche-dunkel" x="322" y="128" width="56" height="66"/>
+    <rect class="ss-kueche" x="322" y="128" width="56" height="66" fill="url(#ss-kueche)"/>
+    <image class="ss-kuehlschrank" href="{kueche}" x="328" y="140" width="46" height="46"/>
+    <rect class="ss-lampe" x="344" y="128" width="12" height="3" rx="1.5"/>
+    <path class="ss-sprosse" d="M350 128 V194"/>
+    <rect class="ss-bank" x="314" y="198" width="72" height="4" rx="1"/>
+  </g>
+  <g class="ss-steckdose"><rect x="300" y="212" width="12" height="15" rx="2.5"/><circle cx="306" cy="219.5" r="3.4"/><circle class="ss-steckdose-an" cx="306" cy="219.5" r="1.4"/></g>
+  <path class="ss-glanzfenster" d="M240 240 L262 132 H272 L250 240 Z"/>
+  <g class="ss-pflanze">
+    <path d="M262 246 L258 226 H284 L280 246 Z" fill="url(#ss-topf)"/>
+    {"".join(f'<ellipse cx="{x}" cy="{y}" rx="4.2" ry="11" transform="rotate({w} {x} {y})" fill="url(#ss-blatt)"/>' for x, y, w in ((266, 214, -28), (271, 208, -6), (277, 212, 18), (282, 218, 34), (262, 222, -46), (274, 218, 4)))}
+  </g>
+  <rect class="ss-schatten" x="10" y="264" width="294" height="16" fill="url(#ss-schatten)"/>
+  <polygon class="ss-platte-oben" points="10,246 304,246 306,252 8,252" fill="url(#ss-beton)"/>
+  <rect class="ss-platte" x="8" y="252" width="298" height="12" fill="url(#ss-beton)"/>
+  <rect class="ss-platte-nacht" x="8" y="246" width="298" height="18"/>
+  <g class="ss-gelaender" fill="url(#ss-metall)">{staebe}<rect x="12" y="240" width="292" height="3" rx="1"/></g>
+  <rect class="ss-handlauf" x="10" y="193" width="296" height="6" rx="3" fill="url(#ss-metall)"/>
+  <path class="ss-handlauf-licht" d="M14 194.5 H302"/>
+  <path class="ss-kette" d="M16 199 Q158 213 300 199"/>
+  {birnen_aus}
+  <polygon class="ss-modul-rahmen" points="{modul_punkte}" fill="url(#ss-rahmen)"/>
+  <polygon class="ss-modul-glas" points="{glas_punkte}"/>
+  <g class="ss-zellen">{zellen}{busbars}</g>
+  <polygon class="ss-modul-energie" points="{glas_punkte}" fill="url(#ss-energie)"/>
+  <g clip-path="url(#ss-modul-clip)"><polygon class="ss-modul-glanz" points="40,250 70,250 140,90 110,90" fill="url(#ss-glanz)"/></g>
+  <rect class="ss-klemme" x="58" y="190" width="7" height="12" rx="1.5"/><rect class="ss-klemme" x="138" y="182" width="7" height="12" rx="1.5"/>
+  <rect class="ss-dose" x="170" y="198" width="10" height="8" rx="1.5"/>
+  <path class="ss-kabel" d="M180 204 C188 206 188 214 194 214"/>
+  <g class="ss-wechselrichter"><rect x="192" y="204" width="32" height="24" rx="4" fill="url(#ss-wr)"/>
+    <path d="M196 208 H220 M196 211 H220 M196 214 H220" class="ss-rippen"/><path class="ss-sinus" d="M199 222 q3 -5 6 0 t6 0 t6 0"/></g>
+  <path class="ss-kabel" d="M224 220 C236 224 240 246 252 246 H296 Q306 246 306 236 V227"/>
+</svg>
+<svg class="ss-fluss" viewBox="0 0 400 290" preserveAspectRatio="none" aria-hidden="true">
+  <g class="ss-photonen">{photonen}</g>
+  <g class="ss-energiezone"><polygon class="ss-puls" points="{glas_punkte}"/>{funken}</g>
+  <path class="ss-dc" d="M180 204 C188 206 188 214 194 214"/>
+  <circle class="ss-led" cx="219" cy="208" r="1.6"/>
+  <path class="ss-ac" d="M224 220 C236 224 240 246 252 246 H296 Q306 246 306 236 V227"/>
+  <g class="ss-lichterkette">{birnen_an}</g>
+  <g class="ss-karte">
+    <rect x="14" y="14" width="150" height="66" rx="12" class="ss-karte-grund"/>
+    <text x="26" y="31" class="ss-karte-titel">SOLARSTROM PRO JAHR</text>
+    <text x="26" y="54" class="ss-karte-zahl"><tspan data-story-zaehler="{round(ertrag)}" data-von=".76" data-bis=".95">{zahl(ertrag)}</tspan> <tspan class="ss-karte-einheit">kWh</tspan></text>
+    <text x="26" y="70" class="ss-karte-euro">≈ <tspan data-story-zaehler="{round(ersparnis)}" data-von=".8" data-bis=".97">{zahl(ersparnis)}</tspan> € gespart</text>
+    {monatsbalken}
+  </g>
+</svg>
+</div></div>'''
     schritte = [
         ("Schritt 1", "Die Sonne liefert Energie.", "Kostenlos und jeden Tag – auch bei Wolken kommt noch ein Teil an."),
         ("Schritt 2", "Solarmodule machen daraus Strom.", "Die Zellen wandeln Licht direkt in Gleichstrom um. Am meisten mittags und im Sommer."),
@@ -1190,7 +1387,8 @@ def solar_story(s, ertrag, ersparnis):
         ("Ergebnis", f"Rund {zahl(ertrag)} kWh im Jahr.",
          f"Deine Geräte nutzen den Solarstrom sofort. Mit den Startwerten oben sparst du etwa {euro(ersparnis)} pro Jahr."),
     ]
-    return story(schritte, bild, "So funktioniert ein Balkonkraftwerk")
+    return story(schritte, bild, "So funktioniert ein Balkonkraftwerk",
+                 intro=("Balkonkraftwerk", "Strom vom eigenen Balkon.", "Scroll weiter – so wird aus Sonnenlicht Strom für deine Steckdose."))
 
 
 def werkzeuge_uebersicht(ctx):

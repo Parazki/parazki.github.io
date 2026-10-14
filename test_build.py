@@ -299,6 +299,14 @@ class Bauen(unittest.TestCase):
         self.assertIn("unregister", (self.ziel / "stromfresser-check" / "sw.js").read_text(encoding="utf-8"))
         self.assertNotIn("stromfresser-check/", (self.ziel / "sitemap.xml").read_text(encoding="utf-8"))
 
+    def test_solar_szene(self):
+        text = (self.ziel / "balkonkraftwerk" / "index.html").read_text(encoding="utf-8")
+        self.assertIn('class="story story-mit-intro"', text)
+        self.assertLess(text.index('class="story-intro"'), text.index('class="solar-bild"'), "Text muss vor dem Bild stehen")
+        self.assertEqual(text.count('class="ss-zelle"'), 60)
+        self.assertEqual(text.count("data-story-zaehler="), 2)
+        self.assertNotIn("solar-svg", text)
+
     def test_kein_html_injection_aus_daten(self):
         for g in self.geraete:
             for feld in ("name", "hinweis", "tipp"):
