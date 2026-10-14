@@ -1085,34 +1085,78 @@ def leuchttext(teile):
 
 
 def haus_story(s, ctx):
+    """Haus-Szene: Alles hängt stufenlos am Scroll-Fortschritt --p (0…1), ohne teure Filter.
+
+    Drei Ebenen mit gleichem Koordinatensystem: Himmel (Sterne, Mond), Haus (zeichnet sich, Räume leuchten nacheinander auf,
+    Zähler läuft hoch) und Stromfluss (Lichtpunkte im Kabel). --s = Fortschritt, ab dem ein Raum Strom bekommt.
+    """
     gesamt = HAUSHALT_SCHNITT[2]
     b = lambda key: s.link(f"assets/bilder/{key}.svg")
-    sterne = "".join(f'<circle class="stern" cx="{x}" cy="{y}" r="{r}" style="--d:{d}s"/>'
+    sterne = "".join(f'<circle class="hs-stern" cx="{x}" cy="{y}" r="{r}" style="--d:{d}s"/>'
                      for x, y, r, d in ((30, 30, 1.2, 0), (78, 52, .9, 1.1), (120, 22, 1.1, .4), (240, 34, 1, 1.6), (300, 18, 1.3, .8),
-                                        (352, 46, .9, 2.1), (380, 24, 1.1, 1.3), (200, 12, .8, .2), (330, 80, .9, 1.8), (20, 88, 1, .6)))
-    partikel = "".join(f'<circle class="partikel" r="3.2"><animateMotion dur="1.8s" begin="{b}s" repeatCount="indefinite" path="M352 206 V244 H296"/></circle>'
-                       for b in (0, .45, .9, 1.35))
-    bild = f'''<svg class="haus-svg" viewBox="0 0 400 290">
+                                        (352, 86, .9, 2.1), (384, 24, 1.1, 1.3), (200, 12, .8, .2), (160, 40, .7, 2.6), (20, 92, 1, .6),
+                                        (276, 52, .8, 1.9), (60, 12, .9, 2.3)))
+    # Linien zeichnen sich nacheinander: --a = Start, --l = Dauer (Anteil der Strecke)
+    linien = "".join(f'<path class="hs-linie{" " + k if k else ""}" pathLength="1" style="--a:{a};--l:{l}" d="{d}"/>' for k, a, l, d in (
+        ("hs-boden", 0, .07, "M10 262 H390"),
+        ("", .03, .09, "M72 262 V146 H288 V262"),
+        ("", .07, .08, "M54 150 L180 64 L306 150"),
+        ("", .12, .05, "M250 110 V80 H272 V125"),
+        ("hs-tuer", .14, .05, "M164 262 V216 Q180 206 196 216 V262"),
+    ))
+    raeume = "".join(f'''<g class="hs-raum" style="--s:{start}">
+    <rect class="hs-schein" x="{x - 16}" y="{y - 16}" width="{w + 32}" height="{h + 32}" rx="24"/>
+    <rect class="hs-grund" x="{x}" y="{y}" width="{w}" height="{h}" rx="7"/>
+    <rect class="hs-licht" x="{x}" y="{y}" width="{w}" height="{h}" rx="7"/>
+    <image class="hs-geraet" href="{b(bild)}" x="{bx}" y="{by}" width="{g}" height="{g}"/>
+  </g>''' for x, y, w, h, bild, bx, by, g, start in (
+        (86, 158, 74, 42, "kuehlschrank", 104, 160, 38, .30),
+        (200, 158, 74, 42, "fernseher", 218, 160, 38, .52),
+        (86, 212, 66, 42, "waschmaschine", 100, 214, 38, .58),
+        (208, 212, 66, 42, "laptop", 212, 214, 38, .64),
+    ))
+    kabel = "M353 206 V246 H288"
+    punkte = "".join(f'<g class="hs-punkt"><circle r="6.5" class="hs-punkt-hof"/><circle r="2.8"/>'
+                     f'<animateMotion dur="1.6s" begin="{t}s" repeatCount="indefinite" path="{kabel}"/></g>' for t in (0, .4, .8, 1.2))
+    bild = f'''<div class="haus-bild">
+<svg class="hs-himmel" viewBox="0 0 400 290" aria-hidden="true">
   <defs>
-    <radialGradient id="raumlicht" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#FFE29A"/><stop offset="1" stop-color="#FFB340"/></radialGradient>
-    <linearGradient id="dachlicht" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD60A"/><stop offset="1" stop-color="#FF9F0A"/></linearGradient>
+    <radialGradient id="hs-mondschein"><stop offset="0" stop-color="#f5f5f7" stop-opacity=".35"/><stop offset="1" stop-color="#f5f5f7" stop-opacity="0"/></radialGradient>
+    <radialGradient id="hs-horizont" cx="50%" cy="100%" r="100%"><stop offset="0" stop-color="#ff9f0a" stop-opacity=".26"/><stop offset=".7" stop-color="#ff9f0a" stop-opacity=".06"/><stop offset="1" stop-color="#ff9f0a" stop-opacity="0"/></radialGradient>
   </defs>
-  <g class="himmel-sterne">{sterne}<circle class="mond" cx="342" cy="44" r="13"/></g>
-  <path class="linie boden" pathLength="1" d="M10 262 H390"/>
-  <path class="dachflaeche" d="M54 150 L180 64 L306 150 Z"/>
-  <path class="linie" pathLength="1" d="M54 150 L180 64 L306 150"/>
-  <path class="linie" pathLength="1" d="M250 110 V80 H272 V125"/>
-  <path class="linie" pathLength="1" d="M72 262 V146 H288 V262"/>
-  <rect class="raum r1" x="86" y="158" width="74" height="42" rx="7"/><image class="raum-emoji" href="{b('kuehlschrank')}" x="104" y="160" width="38" height="38"/>
-  <rect class="raum r2" x="200" y="158" width="74" height="42" rx="7"/><image class="raum-emoji" href="{b('fernseher')}" x="218" y="160" width="38" height="38"/>
-  <rect class="raum r3" x="86" y="212" width="66" height="42" rx="7"/><image class="raum-emoji" href="{b('waschmaschine')}" x="100" y="214" width="38" height="38"/>
-  <rect class="raum r4" x="208" y="212" width="66" height="42" rx="7"/><image class="raum-emoji" href="{b('laptop')}" x="212" y="214" width="38" height="38"/>
-  <path class="linie tuer" pathLength="1" d="M164 262 V216 Q180 206 196 216 V262"/>
-  <image class="raum-emoji klein r1-zusatz" href="{b('wlan-router')}" x="250" y="230" width="22" height="22"/>
-  <path class="leitung" d="M352 206 V244 H296"/>
-  {partikel}
-  <g class="zaehler-box"><rect x="322" y="150" width="62" height="56" rx="12"/><text class="zaehler-zahl" x="353" y="181" data-story-zahl="{gesamt}">{zahl(gesamt)}</text><text class="zaehler-einheit" x="353" y="197">kWh</text></g>
-</svg>'''
+  <ellipse class="hs-horizont" cx="190" cy="262" rx="185" ry="110" fill="url(#hs-horizont)"/>
+  <g class="hs-sterne">{sterne}</g>
+  <circle cx="342" cy="44" r="34" fill="url(#hs-mondschein)"/><circle class="hs-mond" cx="342" cy="44" r="13"/>
+</svg>
+<svg class="hs-haus" viewBox="0 0 400 290" aria-hidden="true">
+  <defs>
+    <radialGradient id="hs-glut" cx="50%" cy="55%" r="50%"><stop offset="0" stop-color="#ffb340" stop-opacity=".55"/><stop offset=".55" stop-color="#ff9f0a" stop-opacity=".16"/><stop offset="1" stop-color="#ff9f0a" stop-opacity="0"/></radialGradient>
+    <radialGradient id="hs-schein"><stop offset=".35" stop-color="#ffc94a" stop-opacity=".55"/><stop offset="1" stop-color="#ffc94a" stop-opacity="0"/></radialGradient>
+    <radialGradient id="hs-licht" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="#fff1c4"/><stop offset=".6" stop-color="#ffd27a"/><stop offset="1" stop-color="#ffad33"/></radialGradient>
+    <linearGradient id="hs-dachlicht" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd60a"/><stop offset="1" stop-color="#ff9f0a"/></linearGradient>
+  </defs>
+  <ellipse class="hs-glut" cx="180" cy="196" rx="190" ry="120" fill="url(#hs-glut)"/>
+  <polygon class="hs-dach" points="54,150 180,64 306,150"/>
+  <polygon class="hs-dach-licht" points="54,150 180,64 306,150" fill="url(#hs-dachlicht)"/>
+  <rect class="hs-wand" x="72" y="146" width="216" height="116"/>
+  {raeume}
+  <g class="hs-raum hs-router" style="--s:.36"><image class="hs-geraet" href="{b('wlan-router')}" x="250" y="230" width="22" height="22"/></g>
+  {linien}
+  <path class="hs-kabel" pathLength="1" d="{kabel}"/>
+  <path class="hs-strom" pathLength="1" d="{kabel}"/>
+  <g class="hs-zaehler">
+    <rect class="hs-zaehler-box" x="322" y="146" width="62" height="60" rx="12"/>
+    <text class="hs-zahl" x="353" y="175" data-story-zaehler="{gesamt}" data-von=".26" data-bis=".97">{zahl(gesamt)}</text>
+    <text class="hs-einheit" x="353" y="188">kWh / Jahr</text>
+    <rect class="hs-balken-spur" x="334" y="194" width="38" height="3.5" rx="1.75"/>
+    <rect class="hs-balken" x="334" y="194" width="38" height="3.5" rx="1.75"/>
+  </g>
+</svg>
+<svg class="hs-fluss" viewBox="0 0 400 290" aria-hidden="true">
+  {punkte}
+  <rect class="hs-puls" x="322" y="146" width="62" height="60" rx="12"/>
+</svg>
+</div>'''
     schritte = [
         ("Rund um die Uhr", "Strom fließt immer.", "Auch wenn gerade niemand etwas einschaltet – irgendetwas läuft immer."),
         ("Immer an", "Manche Geräte schlafen nie.", "Kühlschrank, Router und Standby laufen 8.760 Stunden im Jahr. Kleine Leistung, großer Effekt."),

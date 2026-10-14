@@ -259,9 +259,10 @@ class Bauen(unittest.TestCase):
         self.assertLess(start.index('class="story-intro"'), start.index('class="story-bild"'), "Text muss vor dem Bild stehen")
         self.assertIn('class="bento"', start)
         self.assertIn("data-leuchttext", start)
-        haus = start.split('class="haus-svg"')[1].split("</svg>")[0]
-        self.assertNotIn('<text class="raum-emoji', haus)
-        self.assertEqual(haus.count('<image class="raum-emoji'), 5)
+        haus = start.split('class="hs-haus"')[1].split("</svg>")[0]
+        self.assertEqual(haus.count('class="hs-geraet"'), 5)
+        self.assertIn('data-story-zaehler="2500"', haus)
+        self.assertEqual(start.count('class="hs-himmel"') + start.count('class="hs-fluss"'), 2)
 
     def test_google_eintrag(self):
         start = (self.ziel / "index.html").read_text(encoding="utf-8")

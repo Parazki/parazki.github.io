@@ -447,8 +447,50 @@
   if (geschichten.length && !BEWEGUNG_AUS) {
     geschichten.forEach((st) => {
       st.classList.add("lebendig");
+      st._schritte = $$(".story-schritt", st);
+      st._punkte = $$(".story-punkte i", st);
+      st._zaehler = $$("[data-story-zaehler]", st);
       $$("[data-story-zahl]", st).forEach((z) => { z._endtext = z.textContent; z.textContent = "0"; });
     });
+  }
+  const begrenzt = (x) => Math.min(1, Math.max(0, x));
+  // Zeichnet eine Geschichte für den Fortschritt p (0…1): Bild (über --p), Texte und Zähler laufen stufenlos mit
+  function storyZeichnen(st, p) {
+    st.style.setProperty("--p", p.toFixed(4));
+    const n = st._schritte.length;
+    const i = Math.min(n - 1, Math.floor(p * n * 0.999));
+    st._schritte.forEach((s, k) => {
+      const u = p * n - k; // Fortschritt im eigenen Abschnitt
+      const rein = k === 0 ? 1 : begrenzt(u / 0.12);
+      const raus = k === n - 1 ? 1 : begrenzt((1 - u) / 0.12);
+      s.style.opacity = Math.min(rein, raus).toFixed(3);
+      s.style.transform = `translateY(${((1 - rein) * 28 - (1 - raus) * 28).toFixed(1)}px)`;
+    });
+    st.classList.toggle("am-ende", p > 0.96);
+    st._zaehler.forEach((z) => {
+      const t = begrenzt((p - parseFloat(z.dataset.von)) / (parseFloat(z.dataset.bis) - parseFloat(z.dataset.von)));
+      const wert = Math.round(parseFloat(z.dataset.storyZaehler) * (1 - Math.pow(1 - t, 2)));
+      if (z._w !== wert) { z._w = wert; z.textContent = zahl(wert); }
+    });
+    if (st.dataset.aktiv !== String(i)) {
+      st.dataset.aktiv = String(i);
+      st._schritte.forEach((s, k) => s.classList.toggle("aktiv", k === i));
+      st._punkte.forEach((d, k) => d.classList.toggle("aktiv", k === i));
+      $$("[data-story-zahl]", st).forEach((z) => {
+        const ziel = parseFloat(z.dataset.storyZahl);
+        const kwh = z._endtext && z._endtext.includes("kWh") ? " kWh" : "";
+        if (i === n - 1) zeigeZahl(z, ziel, (x) => zahl(Math.round(x)) + kwh);
+        else { z._wert = undefined; z.textContent = "0" + kwh; }
+      });
+    }
+  }
+  // Weich nachziehen: Mausrad und Touch springen in groben Schritten – die Szene gleitet hinterher
+  function storyTick(st) {
+    const d = st._ziel - st._p;
+    st._p = Math.abs(d) < 0.0005 ? st._ziel : st._p + d * 0.14;
+    storyZeichnen(st, st._p);
+    if (st._p !== st._ziel) requestAnimationFrame(() => storyTick(st));
+    else st._laeuft = false;
   }
   let scrollGeplant = false;
   function scrollBild() {
@@ -459,8 +501,7 @@
       const box = st.getBoundingClientRect();
       if (box.bottom < -vh || box.top > vh * 2) return;
       let p = Math.min(1, Math.max(0, -box.top / Math.max(1, box.height - vh)));
-      const schritte = $$(".story-schritt", st);
-      const n = schritte.length;
+      const n = st._schritte.length;
       if (st.hasAttribute("data-intro")) {
         // Vorspann: Das erste Stück der Strecke gehört nur dem Text, danach kommt das Bild
         const q = 1 / (n + 1);
@@ -469,19 +510,9 @@
         if (st.dataset.phase !== phase) st.dataset.phase = phase;
         p = Math.max(0, (p - q) / (1 - q));
       }
-      const i = Math.min(n - 1, Math.floor(p * n * 0.999));
-      st.style.setProperty("--p", p.toFixed(4));
-      if (st.dataset.aktiv !== String(i)) {
-        st.dataset.aktiv = String(i);
-        schritte.forEach((s, k) => s.classList.toggle("aktiv", k === i));
-        $$(".story-punkte i", st).forEach((d, k) => d.classList.toggle("aktiv", k === i));
-        $$("[data-story-zahl]", st).forEach((z) => {
-          const ziel = parseFloat(z.dataset.storyZahl);
-          const kwh = z._endtext && z._endtext.includes("kWh") ? " kWh" : "";
-          if (i === n - 1) zeigeZahl(z, ziel, (x) => zahl(Math.round(x)) + kwh);
-          else { z._wert = undefined; z.textContent = "0" + kwh; }
-        });
-      }
+      st._ziel = p;
+      if (st._p === undefined) { st._p = p; storyZeichnen(st, p); }
+      else if (!st._laeuft) { st._laeuft = true; requestAnimationFrame(() => storyTick(st)); }
     });
     leuchten.forEach((l) => {
       if (!l.classList.contains("lebendig")) return;
