@@ -237,7 +237,7 @@ def produkt_karte(s, label, text, query, bild_key="🛒"):
 <aside class="produkt karte-outline">
   <span class="produkt-emoji" aria-hidden="true">{bild_oder_emoji(s, bild_key, bild_key)}</span>
   <div class="produkt-text">
-    <h3>{e(label)}</h3>
+    <h2 class="produkt-titel">{e(label)}</h2>
     <p>{e(text)}</p>
   </div>
   <a class="knopf knopf-tonal ripple" href="{e(amazon_link(ctx, query))}" rel="{rel}" target="_blank">{icon('cart')}Bei Amazon ansehen{stern}</a>
@@ -1905,7 +1905,10 @@ def spar_produkte_seite(ctx):
   <span class="sp-text"><span class="overline">Persönlich</span><strong>Was passt zu deinem Haushalt?</strong><small>Der Spar-Check zeigt dir in 60 Sekunden, welche Maßnahmen bei dir am meisten bringen.</small></span>
   <span class="sp-knopf">Starten{icon('chevron')}</span>
 </a>
-<section class="produkt-raster">{''.join(produkt_kachel(s, p) for p in SPAR_PRODUKTE)}</section>
+<section class="abschnitt">
+  <div class="abschnitt-kopf"><div><span class="overline">Unsere Auswahl</span><h2>Sortiert nach Ersparnis.</h2></div></div>
+  <div class="produkt-raster">{''.join(produkt_kachel(s, p) for p in SPAR_PRODUKTE)}</div>
+</section>
 <p class="unterzeile zentriert">Ersparnis bei <span data-preis-anzeige>{zahl(ctx['preis'], 2)} €/kWh</span>, gerechnet mit typischen Werten. Links mit * sind Partnerlinks: Kaufst du darüber, erhalten wir eine kleine Provision – für dich ändert sich der Preis nicht.</p>
 {faq_html(faq)}
 """
@@ -2034,9 +2037,9 @@ def tarif_seite(ctx):
   <div class="rechner-felder">
     {schieber("verbrauch", "Dein Jahresverbrauch", 2500, 500, 8000, 50, "kWh", "2.500 kWh")}
     <button class="knopf knopf-tonal ripple" type="button" data-aus-haushalt hidden>{icon('pie')}Verbrauch aus „Mein Haushalt“ übernehmen</button>
-    <h3 class="feld-gruppe">Dein aktueller Tarif</h3>
+    <h2 class="feld-gruppe">Dein aktueller Tarif</h2>
     <div class="feld-paar">{zahlenfeld("alt_ap", "Arbeitspreis", ap, "ct/kWh")}{zahlenfeld("alt_gp", "Grundpreis", 12, "€/Monat")}</div>
-    <h3 class="feld-gruppe">Neuer Tarif</h3>
+    <h2 class="feld-gruppe">Neuer Tarif</h2>
     <div class="feld-paar">{zahlenfeld("neu_ap", "Arbeitspreis", round(ap - 4, 1), "ct/kWh")}{zahlenfeld("neu_gp", "Grundpreis", 13, "€/Monat")}</div>
     {zahlenfeld("bonus", "Einmaliger Bonus", 50, "€")}
   </div>
@@ -2079,7 +2082,7 @@ def eauto_seite(ctx):
     {schieber("verbrauch", "Verbrauch E-Auto", 17, 12, 30, 0.5, "kWh/100 km", "17 kWh/100 km")}
     {schieber("anteil", "Davon zu Hause geladen", 80, 0, 100, 5, "%", "80 %")}
     <div class="feld-paar">{zahlenfeld("preis", "Strompreis zu Hause", ctx["preis"], "€/kWh")}{zahlenfeld("saeule", "Ladesäule", 0.59, "€/kWh")}</div>
-    <h3 class="feld-gruppe">Vergleich: Verbrenner</h3>
+    <h2 class="feld-gruppe">Vergleich: Verbrenner</h2>
     <div class="feld-paar">{zahlenfeld("liter", "Verbrauch", 6.5, "l/100 km")}{zahlenfeld("sprit", "Spritpreis", 1.75, "€/l")}</div>
   </div>
 </form>

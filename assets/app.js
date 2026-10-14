@@ -714,7 +714,8 @@
     { id: "kuehlschrank", e: "🧊", t: "Alten Kühlschrank ersetzen", text: "Geräte über 15 Jahre verbrauchen oft doppelt so viel wie moderne.",
       wenn: (a) => a.kuehl === "alt", kwh: () => 150, q: "Kühlschrank Energieeffizienzklasse A", link: "werkzeuge/austausch/", lt: "Lohnt sich das?" },
     { id: "leine", e: "🧺", t: "Öfter an der Leine trocknen", text: "Jeder Trockengang an der Luft kostet 0 Cent.",
-      wenn: (a) => a.trockner !== "nein", kwh: (a) => (a.trockner === "kondens" ? 120 : 50) * (pers(a) <= 2 ? 1 : 1.5), q: "Wäscheständer platzsparend", link: "geraet/waermepumpentrockner/", lt: "Trockner-Rechner" },
+      // Bei Kondenstrocknern ist der Tausch gegen einen Wärmepumpentrockner schon im Plan – die Leine spart dann nur noch dessen Verbrauch
+      wenn: (a) => a.trockner !== "nein", kwh: (a) => 50 * (pers(a) <= 2 ? 1 : 1.5), q: "Wäscheständer platzsparend", link: "geraet/waermepumpentrockner/", lt: "Trockner-Rechner" },
     { id: "waschen", e: "🫧", t: "Mit 30 °C waschen", text: "Das Aufheizen macht den Großteil aus – 30 statt 60 °C spart mehr als die Hälfte pro Waschgang.",
       wenn: (a) => a.waschen !== "30", kwh: (a) => (a.waschen === "60" ? 50 : 15) * pers(a), q: "", link: "geraet/waschmaschine/", lt: "Waschmaschinen-Rechner" },
     { id: "kuehltemp", e: "🌡️", t: "Kühlschrank auf 7 °C stellen", text: "Jedes Grad kälter kostet rund 6 % mehr Strom.",
