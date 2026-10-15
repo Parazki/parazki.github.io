@@ -171,6 +171,41 @@ class Bauen(unittest.TestCase):
         self.assertIn(f'data-domains="{domain}"', index)
         self.assertIn("Besucherstatistik (Umami)", (ziel_mit / "datenschutz" / "index.html").read_text(encoding="utf-8"))
 
+    def test_messgeraet_auf_geraeteseiten(self):
+        # Steckdosen-Messgerät überall dort, wo das Gerät einen Stecker hat
+        for g in self.geraete:
+            text = (self.ziel / "geraet" / g["slug"] / "index.html").read_text(encoding="utf-8")
+            self.assertEqual("Echten Verbrauch messen statt schätzen" in text, g["slug"] not in build.FEST_ANGESCHLOSSEN, g["slug"])
+
+    def test_ratgeber_produkte_und_geraetelinks(self):
+        for a in build.ARTIKEL:
+            text = (self.ziel / "wissen" / a["slug"] / "index.html").read_text(encoding="utf-8")
+            for label, _, _ in a.get("produkte", ()):
+                self.assertIn(build.e(label), text, a["slug"])
+            for slug in a.get("geraete", ()):
+                geraet = (self.ziel / "geraet" / slug / "index.html").read_text(encoding="utf-8")
+                self.assertIn(f'href="../../wissen/{a["slug"]}/"', geraet, (slug, a["slug"]))
+
+    def test_tarif_partner_und_pinterest_nur_mit_config(self):
+        cfg = json.loads((build.ROOT / "config.json").read_text(encoding="utf-8"))
+        ohne = dict(cfg, tarifvergleich_partner_link="", pinterest_domain_verify="")
+        mit = dict(cfg, tarifvergleich_partner_link="https://www.awin1.com/cread.php?awinmid=1&awinaffid=2",
+                   tarifvergleich_partner_name="Check24", pinterest_domain_verify="abc123")
+        ziel_ohne, ziel_mit = Path(self.tmp.name) / "tarif-ohne", Path(self.tmp.name) / "tarif-mit"
+        build.baue(ziel_ohne, cfg=ohne, heute=datetime.date(2026, 10, 11))
+        build.baue(ziel_mit, cfg=mit, heute=datetime.date(2026, 10, 11))
+        lies = lambda ziel, pfad: (ziel / pfad).read_text(encoding="utf-8")
+        for pfad in ("werkzeuge/tarifvergleich/index.html", "wissen/stromanbieter-wechseln/index.html"):
+            self.assertNotIn("data-partner", lies(ziel_ohne, pfad), pfad)
+            text = lies(ziel_mit, pfad)
+            self.assertIn('data-partner="tarif"', text, pfad)
+            self.assertIn('href="https://www.awin1.com/cread.php?awinmid=1&amp;awinaffid=2" rel="sponsored nofollow noopener"', text, pfad)
+            self.assertIn("Tarifvergleich bei Check24 ist ein Partnerlink", text, pfad)
+        self.assertNotIn("Partnerlink zum Tarifvergleich", lies(ziel_ohne, "datenschutz/index.html"))
+        self.assertIn("Partnerlink zum Tarifvergleich", lies(ziel_mit, "datenschutz/index.html"))
+        self.assertNotIn("p:domain_verify", lies(ziel_ohne, "index.html"))
+        self.assertIn('<meta name="p:domain_verify" content="abc123">', lies(ziel_mit, "index.html"))
+
     def test_wissen_artikel(self):
         self.assertGreaterEqual(len(build.ARTIKEL), 6)
         for a in build.ARTIKEL:

@@ -50,6 +50,232 @@ ARTIKEL = [
         "werkzeug": ("Stromkosten jedes Geräts berechnen", "geraete/"),
     },
     {
+        "slug": "heizluefter-kosten",
+        "emoji": "🌬️",
+        "titel": "Heizlüfter: Was kostet eine Stunde?",
+        "kurz": "Kosten pro Stunde, Tag und Monat – mit Tabelle für deinen Strompreis und Tipps, wie du günstiger warm wirst.",
+        "beschreibung": "Was kostet ein Heizlüfter pro Stunde, Tag und Monat? Tabelle für 1.000 bis 2.500 Watt, Rechenweg, Spartipps und Sicherheit.",
+        "geraete": ["heizluefter"],
+        "abschnitte": [
+            ("So rechnest du die Kosten aus",
+             '<div class="formel"><span>Watt ÷ 1.000</span><b>×</b><span>Stunden</span><b>×</b><span>Strompreis</span><b>=</b><span class="formel-ziel">Kosten</span></div>'
+             "<p>Ein üblicher Heizlüfter hat <strong>2.000 Watt</strong>. Das sind 2 kWh pro Stunde. Bei {preis} €/kWh kostet "
+             "eine Stunde auf voller Stufe also rund <strong>70 Cent</strong>. Die Leistung steht auf dem Typenschild oder in der Anleitung.</p>"),
+            ("Kosten pro Stunde im Überblick",
+             '<div class="tabelle-rahmen"><table class="tabelle">'
+             "<thead><tr><th>Leistung</th><th>bei 30 ct pro kWh</th><th>bei 35 ct pro kWh</th><th>bei 40 ct pro kWh</th></tr></thead><tbody>"
+             "<tr><td>1.000&nbsp;W</td><td>30 ct</td><td>35 ct</td><td>40 ct</td></tr>"
+             "<tr><td>1.500&nbsp;W</td><td>45 ct</td><td>53 ct</td><td>60 ct</td></tr>"
+             "<tr><td>2.000&nbsp;W</td><td>60 ct</td><td>70 ct</td><td>80 ct</td></tr>"
+             "<tr><td>2.500&nbsp;W</td><td>75 ct</td><td>88 ct</td><td>1,00 €</td></tr>"
+             "</tbody></table></div>"
+             "<p>Deinen Arbeitspreis findest du auf der Stromrechnung. Läuft der Heizlüfter mit Thermostat, schaltet er sich zwischendurch ab "
+             "– dann wird es entsprechend weniger.</p>"),
+            ("Pro Tag und Monat",
+             "<p>Bei 2.000 Watt und 35 ct/kWh kommt schnell einiges zusammen:</p>"
+             '<div class="tabelle-rahmen"><table class="tabelle">'
+             "<thead><tr><th>Laufzeit pro Tag</th><th>pro Tag</th><th>pro Monat</th></tr></thead><tbody>"
+             "<tr><td>1 Stunde</td><td>0,70 €</td><td>21 €</td></tr>"
+             "<tr><td>2 Stunden</td><td>1,40 €</td><td>42 €</td></tr>"
+             "<tr><td>4 Stunden</td><td>2,80 €</td><td>84 €</td></tr>"
+             "<tr><td>8 Stunden</td><td>5,60 €</td><td>168 €</td></tr>"
+             "</tbody></table></div>"
+             "<p>Wer einen Heizlüfter die ganze Heizsaison täglich zwei Stunden laufen lässt, zahlt dafür grob 200 € im Jahr.</p>"),
+            ("Warum Heizlüfter so teuer sind",
+             "<p>Ein Heizlüfter macht aus 1 kWh Strom genau 1 kWh Wärme – mehr geht mit einem Heizdraht nicht. Strom ist aber eine teure Energie. "
+             "Eine Wärmepumpe holt dagegen aus 1 kWh Strom etwa 3 bis 4 kWh Wärme aus der Umgebung. Deshalb ist der Heizlüfter fast immer "
+             "die teuerste Art, einen Raum zu heizen.</p>"
+             "<p>Sinnvoll ist er nur kurz und für kleine Räume: das Bad vor dem Duschen, ein kalter Abend in der Übergangszeit oder als "
+             "Notlösung, wenn die Heizung ausfällt.</p>"),
+            ("Günstiger warm werden",
+             "<ul class=\"haken-liste\">"
+             "<li><strong>Nur dich wärmen statt den Raum:</strong> Eine Heizdecke mit rund 60 Watt kostet etwa 2 Cent pro Stunde.</li>"
+             "<li><strong>Thermostat nutzen:</strong> Ein Steckdosen-Thermostat schaltet bei Wunschtemperatur ab, statt dass der Heizlüfter durchläuft.</li>"
+             "<li><strong>Kleine Stufe, Tür zu:</strong> Stufe 1 zieht meist die halbe Leistung, heizt aber auch nur halb so stark.</li>"
+             "<li><strong>Zentralheizung zuerst:</strong> Wenn es eine gibt, ist sie fast immer günstiger als jedes Heizgerät aus der Steckdose.</li>"
+             "</ul>"
+             "<p>Welche Elektroheizung wofür taugt, steht im Ratgeber <a href=\"{root}wissen/elektroheizung-vergleich/\">Elektroheizungen im Vergleich</a>.</p>"),
+            ("Sicher heizen",
+             "<ul class=\"haken-liste\">"
+             "<li>Direkt in die Wandsteckdose stecken, nicht in Mehrfachsteckdosen oder Verlängerungen – 2.000 Watt sind dauerhaft viel Last.</li>"
+             "<li>Abstand zu Vorhängen, Möbeln und Wäsche halten und das Gerät nicht abdecken.</li>"
+             "<li>Nicht unbeaufsichtigt oder über Nacht laufen lassen.</li>"
+             "<li>Auf Kippschutz und Überhitzungsschutz achten.</li>"
+             "</ul>"),
+        ],
+        "fragen": [
+            ("Was kostet ein Heizlüfter pro Stunde?", "Ein Heizlüfter mit 2.000 Watt verbraucht 2 kWh pro Stunde. Bei {preis} €/kWh sind das rund 70 Cent pro Stunde auf voller Stufe."),
+            ("Was kostet ein Heizlüfter pro Tag?", "Bei 2.000 Watt und 35 ct/kWh kosten 2 Stunden täglich rund 1,40 €, 8 Stunden rund 5,60 € – im Monat also 42 € bzw. 168 €."),
+            ("Ist ein Heizlüfter günstiger als die Heizung?", "Fast nie. Ein Heizlüfter wandelt Strom 1 zu 1 in Wärme um. Gas- oder Fernwärmeheizungen und vor allem Wärmepumpen sind pro Kilowattstunde Wärme meist deutlich günstiger."),
+            ("Verbraucht ein Heizlüfter auf Stufe 1 weniger?", "Ja, meist etwa die Hälfte – er gibt dann aber auch nur die halbe Wärme ab. Für die gleiche Wärme kostet es also gleich viel."),
+        ],
+        "produkte": [
+            ("Steckdosen-Thermostat", "Schaltet den Heizlüfter bei Wunschtemperatur ab, statt ihn durchlaufen zu lassen.", "Steckdosenthermostat"),
+            ("Heizdecke mit Abschaltautomatik", "Wärmt dich mit rund 60 statt 2.000 Watt – direkt am Sofa oder Schreibtisch.", "Heizdecke Abschaltautomatik"),
+        ],
+        "werkzeug": ("Heizlüfter-Kosten mit deinen Werten berechnen", "geraet/heizluefter/"),
+    },
+    {
+        "slug": "heizdecke-stromverbrauch",
+        "emoji": "🛋️",
+        "titel": "Heizdecke: Stromverbrauch und Kosten",
+        "kurz": "Wie viel Strom eine Heizdecke pro Stunde, Nacht und Winter braucht – und warum sie so viel günstiger ist als ein Heizlüfter.",
+        "beschreibung": "Heizdecke Stromverbrauch: Watt, Kosten pro Stunde und pro Winter, Vergleich mit dem Heizlüfter und worauf du beim Kauf achten solltest.",
+        "geraete": ["heizdecke"],
+        "abschnitte": [
+            ("Wie viel Watt hat eine Heizdecke?",
+             "<p>Die meisten Heizdecken und Wärmeunterbetten haben eine Leistung von <strong>etwa 60 bis 150 Watt</strong>. "
+             "Die volle Leistung braucht sie vor allem beim Aufwärmen. Auf niedriger Stufe regelt sie sich herunter und zieht im Mittel deutlich weniger.</p>"),
+            ("Kosten pro Stunde",
+             '<div class="tabelle-rahmen"><table class="tabelle">'
+             "<thead><tr><th>Leistung</th><th>pro Stunde</th></tr></thead><tbody>"
+             "<tr><td>60 W</td><td>2,1 ct</td></tr>"
+             "<tr><td>100 W</td><td>3,5 ct</td></tr>"
+             "<tr><td>150 W</td><td>5,3 ct</td></tr>"
+             "<tr><td>zum Vergleich: Heizlüfter 2.000&nbsp;W</td><td>70 ct</td></tr>"
+             "</tbody></table></div>"
+             "<p>Gerechnet mit 35 ct/kWh. Eine Heizdecke mit 60 Watt kostet damit nur rund ein Dreißigstel eines Heizlüfters – "
+             "weil sie dich direkt wärmt und nicht die Luft im ganzen Raum.</p>"),
+            ("Was kostet ein ganzer Winter?",
+             '<div class="formel"><span>60 W</span><b>×</b><span>1,5 h</span><b>×</b><span>140 Tage</span><b>=</b><span class="formel-ziel">12,6 kWh</span></div>'
+             "<p>Wer die Decke in der Heizsaison jeden Abend anderthalb Stunden nutzt, braucht rund 12,6 kWh – bei {preis} €/kWh sind das "
+             "<strong>gut 4 € für den ganzen Winter</strong>. Selbst mit 100 Watt und drei Stunden täglich bleibt es unter 15 €.</p>"
+             "<p>Ein Wärmeunterbett, das nur 30 Minuten vor dem Schlafengehen vorwärmt, kostet bei 100 Watt pro Nacht keine 2 Cent.</p>"),
+            ("Heizung runter, Decke an",
+             "<p>Der eigentliche Spareffekt: Wer abends mit Heizdecke auf dem Sofa sitzt, kann die Raumtemperatur um ein, zwei Grad senken. "
+             "Jedes Grad weniger spart grob 6 % Heizenergie – das ist bei der Heizkostenabrechnung viel mehr als die paar Cent für die Decke.</p>"),
+            ("Darauf solltest du beim Kauf achten",
+             "<ul class=\"haken-liste\">"
+             "<li><strong>Abschaltautomatik</strong> nach 1 bis 3 Stunden – wichtig, wenn man darunter einschläft.</li>"
+             "<li><strong>Überhitzungsschutz</strong> und ein Prüfzeichen wie GS oder VDE.</li>"
+             "<li><strong>Mehrere Stufen</strong>, damit sie nach dem Aufwärmen auf kleiner Stufe weiterlaufen kann.</li>"
+             "<li><strong>Abnehmbarer Schalter</strong>, damit die Decke in die Waschmaschine darf.</li>"
+             "</ul>"
+             "<p>Im Betrieb nicht knicken oder zusammenfalten und nicht für Kleinkinder oder Menschen verwenden, die sie nicht selbst ausschalten können.</p>"),
+        ],
+        "fragen": [
+            ("Wie viel Strom verbraucht eine Heizdecke pro Stunde?", "Meist 60 bis 150 Watt, also 0,06 bis 0,15 kWh pro Stunde. Bei {preis} €/kWh kostet das rund 2 bis 5 Cent."),
+            ("Was kostet eine Heizdecke im Winter?", "Bei 60 Watt und anderthalb Stunden täglich in der Heizsaison rund 12,6 kWh – gut 4 € für den ganzen Winter."),
+            ("Ist eine Heizdecke günstiger als ein Heizlüfter?", "Ja, um ein Vielfaches: Eine Heizdecke mit 60 Watt kostet etwa 2 Cent pro Stunde, ein Heizlüfter mit 2.000 Watt etwa 70 Cent."),
+            ("Kann man mit Heizdecke schlafen?", "Am sichersten wärmst du das Bett vor und schaltest dann ab. Wer darunter einschläft, sollte eine Decke mit Abschaltautomatik und Überhitzungsschutz nutzen."),
+        ],
+        "produkte": [
+            ("Heizdecke mit Abschaltautomatik", "Sicher und sparsam für Sofa oder Schreibtisch – mit mehreren Stufen.", "Heizdecke Abschaltautomatik"),
+            ("Wärmeunterbett", "Wärmt das Bett vor dem Schlafengehen vor – danach einfach abschalten.", "Wärmeunterbett Abschaltautomatik"),
+        ],
+        "werkzeug": ("Heizdecken-Kosten berechnen", "geraet/heizdecke/"),
+    },
+    {
+        "slug": "elektroheizung-vergleich",
+        "emoji": "🔥",
+        "titel": "Elektroheizungen im Vergleich: Was ist am günstigsten?",
+        "kurz": "Heizlüfter, Ölradiator, Infrarot oder Heizdecke? Was die Geräte pro Stunde kosten und welches wofür taugt.",
+        "beschreibung": "Elektroheizung Vergleich: Heizlüfter, Ölradiator, Konvektor, Infrarotheizung, Klimagerät und Heizdecke – Kosten pro Stunde und welches Gerät wann sinnvoll ist.",
+        "geraete": ["oelradiator", "infrarotheizung", "heizluefter"],
+        "abschnitte": [
+            ("Die wichtigste Regel",
+             "<p>Heizlüfter, Ölradiator, Konvektor und Infrarotheizung machen alle aus <strong>1 kWh Strom 1 kWh Wärme</strong>. "
+             "Für die gleiche Wärme kosten sie also gleich viel. Sie unterscheiden sich darin, wie schnell sie heizen, wohin die Wärme geht "
+             "und ob sie per Thermostat rechtzeitig abschalten.</p>"
+             "<p>Günstiger wird es nur auf zwei Wegen: mit einer Wärmepumpe, die zusätzliche Wärme aus der Umgebung holt – oder indem du "
+             "nur dich selbst wärmst statt den ganzen Raum.</p>"),
+            ("Kosten pro Stunde",
+             '<div class="tabelle-rahmen"><table class="tabelle">'
+             "<thead><tr><th>Gerät</th><th>typisch</th><th>pro Stunde</th></tr></thead><tbody>"
+             "<tr><td>Heizlüfter</td><td>2.000 W</td><td>70 ct</td></tr>"
+             "<tr><td>Konvektor</td><td>2.000 W</td><td>70 ct</td></tr>"
+             "<tr><td>Ölradiator</td><td>1.500 W</td><td>53 ct</td></tr>"
+             "<tr><td>Infrarotheizung</td><td>600 W</td><td>21 ct</td></tr>"
+             "<tr><td>Heizdecke</td><td>60 W</td><td>2 ct</td></tr>"
+             "</tbody></table></div>"
+             "<p>Bei 35 ct/kWh und voller Leistung. Achtung: Ein 600-Watt-Paneel gibt auch nur knapp ein Drittel der Wärme eines 2.000-Watt-Heizlüfters ab "
+             "– billiger pro Stunde heißt nicht billiger pro Grad.</p>"),
+            ("Welches Gerät wofür?",
+             "<ul class=\"beispiel-liste\">"
+             "<li><span>🌬️</span><div><strong>Heizlüfter:</strong> heizt am schnellsten, ideal fürs Bad vor dem Duschen. Für längeres Heizen zu laut und zu teuer.</div></li>"
+             "<li><span>🔥</span><div><strong>Ölradiator:</strong> nicht sparsamer, aber gleichmäßiger und leise. Gut mit Thermostat für ein paar Stunden.</div></li>"
+             "<li><span>🟥</span><div><strong>Infrarotheizung:</strong> erwärmt Flächen und Personen, dadurch fühlt es sich bei gleicher Lufttemperatur etwas wärmer an. "
+             "Große Einsparungen, wie sie oft beworben werden, sind umstritten.</div></li>"
+             "<li><span>❄️</span><div><strong>Split-Klimagerät mit Heizfunktion:</strong> arbeitet als Wärmepumpe und holt aus 1 kWh Strom etwa 3 kWh Wärme. "
+             "Die einzige Elektroheizung, die wirklich sparsam ist – muss aber vom Fachbetrieb installiert werden.</div></li>"
+             "<li><span>🛋️</span><div><strong>Heizdecke:</strong> mit Abstand am günstigsten, wenn dir nur auf dem Sofa oder am Schreibtisch kalt ist.</div></li>"
+             "</ul>"),
+            ("So sparst du bei jeder Elektroheizung",
+             "<ul class=\"haken-liste\">"
+             "<li>Ein Thermostat verhindert, dass das Gerät weiterheizt, wenn der Raum längst warm ist.</li>"
+             "<li>Nur den Raum heizen, in dem du bist, und die Tür schließen.</li>"
+             "<li>Stoßlüften statt Fenster kippen.</li>"
+             "<li>Gibt es eine Zentralheizung, ist sie fast immer günstiger als jedes Gerät aus der Steckdose.</li>"
+             "</ul>"
+             "<p>Was ein einzelnes Gerät pro Stunde kostet, steht im Ratgeber <a href=\"{root}wissen/heizluefter-kosten/\">Heizlüfter: Was kostet eine Stunde?</a></p>"),
+        ],
+        "fragen": [
+            ("Welche Elektroheizung verbraucht am wenigsten Strom?", "Für die gleiche Wärme verbrauchen Heizlüfter, Ölradiator, Konvektor und Infrarotheizung gleich viel. Weniger Strom brauchen nur ein Klimagerät mit Heizfunktion (Wärmepumpe) oder eine Heizdecke, die nur dich wärmt."),
+            ("Ist ein Ölradiator sparsamer als ein Heizlüfter?", "Nein. Er gibt die Wärme nur gleichmäßiger und leiser ab. Für die gleiche Wärme braucht er gleich viel Strom."),
+            ("Lohnt sich eine Infrarotheizung?", "Sie kann sich an einzelnen Plätzen etwas angenehmer anfühlen, weil sie Flächen und Personen erwärmt. Sie bleibt aber eine Stromdirektheizung – pro Kilowattstunde Wärme kostet sie so viel wie ein Heizlüfter."),
+            ("Was ist die günstigste Art, mit Strom zu heizen?", "Ein fest installiertes Split-Klimagerät mit Heizfunktion, weil es als Wärmepumpe arbeitet. Für einzelne Personen ist eine Heizdecke am günstigsten."),
+        ],
+        "produkte": [
+            ("Steckdosen-Thermostat", "Schaltet jede Elektroheizung bei Wunschtemperatur ab.", "Steckdosenthermostat"),
+            ("Heizdecke mit Abschaltautomatik", "Die günstigste Wärme, wenn dir nur am Sofa oder Schreibtisch kalt ist.", "Heizdecke Abschaltautomatik"),
+        ],
+        "werkzeug": ("Heizlüfter und Ölradiator direkt vergleichen", "werkzeuge/vergleich/?a=heizluefter&b=oelradiator"),
+    },
+    {
+        "slug": "kuehlschrank-stromverbrauch",
+        "emoji": "🧊",
+        "titel": "Kühlschrank: Stromverbrauch pro Tag",
+        "kurz": "Wie viel Strom ein Kühlschrank am Tag und im Jahr braucht, wie du ihn misst und wann sich ein neuer lohnt.",
+        "beschreibung": "Kühlschrank Stromverbrauch pro Tag und Jahr: Tabelle, Kosten, wie du den Verbrauch misst, Spartipps und wann sich ein neues Gerät lohnt.",
+        "geraete": ["kuehlschrank"],
+        "abschnitte": [
+            ("Wie viel Strom braucht ein Kühlschrank am Tag?",
+             "<p>Ein moderner Kühlschrank braucht etwa <strong>0,3 bis 0,5 kWh pro Tag</strong>, also rund 100 bis 180 kWh im Jahr. "
+             "Ältere Geräte und große Kühl-Gefrier-Kombinationen kommen oft auf das Doppelte.</p>"
+             "<p>Der Kompressor zieht beim Laufen meist 50 bis 150 Watt, läuft aber nur einen Teil der Zeit. Über den Tag gemittelt sind es bei "
+             "modernen Geräten oft nur 15 bis 25 Watt.</p>"),
+            ("Kosten pro Tag und Jahr",
+             '<div class="tabelle-rahmen"><table class="tabelle">'
+             "<thead><tr><th>Verbrauch im Jahr</th><th>pro Tag</th><th>Kosten pro Tag</th><th>Kosten pro Jahr</th></tr></thead><tbody>"
+             "<tr><td>100 kWh</td><td>0,27 kWh</td><td>10 ct</td><td>35 €</td></tr>"
+             "<tr><td>150 kWh</td><td>0,41 kWh</td><td>14 ct</td><td>53 €</td></tr>"
+             "<tr><td>200 kWh</td><td>0,55 kWh</td><td>19 ct</td><td>70 €</td></tr>"
+             "<tr><td>300 kWh</td><td>0,82 kWh</td><td>29 ct</td><td>105 €</td></tr>"
+             "<tr><td>400 kWh</td><td>1,10 kWh</td><td>38 ct</td><td>140 €</td></tr>"
+             "</tbody></table></div>"
+             "<p>Gerechnet mit 35 ct/kWh. Weil der Kühlschrank rund um die Uhr läuft, macht schon ein kleiner Unterschied pro Tag übers Jahr viel aus.</p>"),
+            ("So findest du deinen Verbrauch heraus",
+             "<ol class=\"tipp-liste\">"
+             "<li><strong>Energielabel:</strong> Seit 2021 steht dort der Jahresverbrauch in kWh. Er gilt für ein neues Gerät unter Normbedingungen.</li>"
+             "<li><strong>Strommessgerät:</strong> zwischen Steckdose und Kühlschrank stecken und mindestens 24 Stunden, besser eine Woche messen. "
+             "Wochenwert mal 52 ergibt den Jahresverbrauch.</li>"
+             "<li><strong>Stromzähler:</strong> geht auch, ist aber ungenau, weil gleichzeitig andere Geräte laufen.</li>"
+             "</ol>"),
+            ("Weniger Strom ohne neues Gerät",
+             "<ul class=\"haken-liste\">"
+             "<li>7 °C im mittleren Fach reichen – jedes Grad kälter kostet rund 6 % mehr Strom.</li>"
+             "<li>Gefrierfach regelmäßig abtauen, eine dicke Eisschicht erhöht den Verbrauch.</li>"
+             "<li>Türdichtung prüfen: Ein eingeklemmtes Blatt Papier darf sich nicht leicht herausziehen lassen.</li>"
+             "<li>Nicht neben Herd, Heizung oder in die Sonne stellen und die Lüftung hinten frei halten.</li>"
+             "<li>Warme Speisen erst abkühlen lassen.</li>"
+             "</ul>"),
+            ("Wann lohnt sich ein neuer Kühlschrank?",
+             "<p>Vor allem bei Geräten, die älter als etwa 15 Jahre sind. Spart ein neues Gerät 150 kWh im Jahr, sind das bei {preis} €/kWh gut 50 € "
+             "jährlich. Bei einem Kaufpreis von einigen hundert Euro rechnet sich der Tausch also erst über Jahre – sofort lohnt er sich vor allem, "
+             "wenn das alte Gerät ohnehin kaputt ist oder sehr viel verbraucht.</p>"),
+        ],
+        "fragen": [
+            ("Wie viel Strom verbraucht ein Kühlschrank am Tag?", "Ein moderner Kühlschrank etwa 0,3 bis 0,5 kWh pro Tag. Ältere oder große Geräte oft das Doppelte."),
+            ("Was kostet ein Kühlschrank pro Tag?", "Bei 150 kWh im Jahr und {preis} €/kWh rund 14 Cent pro Tag bzw. gut 50 € im Jahr."),
+            ("Wie viel Watt hat ein Kühlschrank?", "Der Kompressor zieht beim Laufen meist 50 bis 150 Watt, läuft aber nicht ständig. Über den Tag gemittelt sind es bei modernen Geräten oft nur 15 bis 25 Watt."),
+            ("Wie messe ich den Stromverbrauch meines Kühlschranks?", "Mit einem Strommessgerät für die Steckdose: mindestens 24 Stunden, besser eine Woche messen und hochrechnen."),
+        ],
+        "produkte": [
+            ("Kühlschrank-Thermometer", "Zeigt, ob dein Kühlschrank kälter läuft als nötig.", "Kühlschrank Thermometer"),
+        ],
+        "werkzeug": ("Lohnt sich ein neuer Kühlschrank?", "werkzeuge/austausch/"),
+    },
+    {
         "slug": "standby",
         "emoji": "🔌",
         "titel": "Standby: der unsichtbare Stromfresser",
@@ -303,6 +529,7 @@ ARTIKEL += [
             ("Muss ich meinen alten Vertrag selbst kündigen?", "Meist nicht – das übernimmt in der Regel der neue Anbieter für dich. Prüfe das beim Abschluss."),
             ("Lohnt sich ein Neukundenbonus?", "Oft ja, aber rechne immer auch das zweite Jahr ohne Bonus. Ein günstiger Arbeitspreis spart dauerhaft, ein Bonus nur einmal."),
         ],
+        "tarif_partner": True,
         "werkzeug": ("Tarife vergleichen", "werkzeuge/tarifvergleich/"),
     },
     {

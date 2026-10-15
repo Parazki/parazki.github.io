@@ -246,7 +246,7 @@ def produkt_karte(s, label, text, query, bild_key="🛒"):
 
 # Stichwort im Produktnamen -> eigene Illustration (Reihenfolge zählt: spezifische Begriffe zuerst)
 PRODUKT_BILDER = [("beamer", "beamer"), ("weinkühlschrank", "weinkuehlschrank"), ("thermometer", "thermometer"), ("hygrometer", "hygrometer"),
-                  ("thermostat", "thermostat"), ("steckdosenleiste", "leiste"), ("master-slave", "masterslave"), ("zeitschaltuhr", "zeitschaltuhr"),
+                  ("thermostat", "thermostat"), ("wärmeunterbett", "heizdecke"), ("steckdosenleiste", "leiste"), ("master-slave", "masterslave"), ("zeitschaltuhr", "zeitschaltuhr"),
                   ("steckdose", "steckdose"), ("heizdecke", "heizdecke"), ("sparduschkopf", "dusche"), ("wäscheständer", "staender"),
                   ("wasserkocher", "wasserkocher"), ("heißluftfritteuse", "heissluftfritteuse"), ("ventilator", "ventilator"),
                   ("fettfilter", "dunstabzugshaube"), ("topf", "topf"), ("ladekabel", "wallbox"), ("ladestation", "ladegeraet"),
@@ -263,11 +263,33 @@ def produkt_bild(label, ersatz="messgeraet"):
     return next((key for wort, key in PRODUKT_BILDER if wort in klein), ersatz)
 
 
+# Fest angeschlossene Geräte (oder über 16 A): ein Steckdosen-Messgerät kann hier nicht messen
+FEST_ANGESCHLOSSEN = {"durchlauferhitzer", "elektroherd", "backofen", "elektroauto"}
+
+
 def messgeraet_karte(s):
     return produkt_karte(s, "Echten Verbrauch messen statt schätzen",
                          "Ein Strommessgerät für die Steckdose zeigt Watt und kWh deines Geräts direkt an – "
                          "einfache Modelle kosten oft unter 20 €.",
                          "Strommessgerät Steckdose", "messgeraet")
+
+
+def partner_karte(s, text=None):
+    """Partnerlink zum Stromtarif-Vergleich – erscheint nur, wenn in config.json ein Link steht."""
+    ctx = s.ctx
+    if not ctx["tarif_link"]:
+        return ""
+    text = text or ("Vergleiche aktuelle Stromtarife für deine Postleitzahl und deinen Verbrauch. "
+                    "Der Wechsel dauert meist nur ein paar Minuten, der neue Anbieter kündigt für dich.")
+    return f"""
+<aside class="produkt partner-karte karte-outline">
+  <span class="produkt-emoji" aria-hidden="true">{bild_oder_emoji(s, "stromzaehler", "🔄")}</span>
+  <div class="produkt-text">
+    <h2 class="produkt-titel">Günstigeren Stromtarif finden</h2>
+    <p>{e(text)}</p>
+  </div>
+  <a class="knopf knopf-tonal ripple" href="{e(ctx['tarif_link'])}" rel="sponsored nofollow noopener" target="_blank" data-partner="tarif">Tarife bei {e(ctx['tarif_anbieter'])} vergleichen*</a>
+</aside>"""
 
 
 def faq_html(fragen):
@@ -347,6 +369,8 @@ def layout(seite, titel, beschreibung, inhalt, aktiv="", extra_head="", index=Tr
     meta = []
     if ctx["verification"]:
         meta.append(f'<meta name="google-site-verification" content="{e(ctx["verification"])}">')
+    if ctx["pinterest"]:
+        meta.append(f'<meta name="p:domain_verify" content="{e(ctx["pinterest"])}">')
     if ctx["umami_id"]:
         domain = ctx["base"].split("://", 1)[-1].split("/", 1)[0]
         meta.append(f'<script defer src="{e(ctx["umami_script"])}" data-website-id="{e(ctx["umami_id"])}" data-domains="{e(domain)}"></script>')
@@ -362,6 +386,9 @@ def layout(seite, titel, beschreibung, inhalt, aktiv="", extra_head="", index=Tr
     partner = ""
     if ctx["tag"]:
         partner = "<p>* Affiliate-Link: Als Amazon-Partner verdiene ich an qualifizierten Verkäufen. Für dich ändert sich der Preis nicht.</p>"
+    if ctx["tarif_link"]:
+        partner += (f"<p>* Auch der Link zum Tarifvergleich bei {e(ctx['tarif_anbieter'])} ist ein Partnerlink: Wechselst du darüber den Tarif, "
+                    "erhalte ich eine Provision. Für dich ändert sich der Preis nicht.</p>")
     aktuell = ' aria-current="page"'
     nav = "".join(
         f'<a class="nav-item" href="{w}{href}"{aktuell if key == aktiv else ""}>'
@@ -702,6 +729,9 @@ def geraeteseite(ctx, g, geraete):
         (f"{gross(name)}: Wie kann ich Strom sparen?", g["tipp"]),
     ]
     p = g["produkt"]
+    ratgeber = "".join(f'<a class="cta-karte ripple" href="{s.link("wissen/" + a["slug"] + "/")}"><span class="cta-icon">{icon("book")}</span>'
+                       f'<span><small>Ratgeber</small><strong>{e(a["titel"])}</strong></span>{icon("chevron")}</a>'
+                       for a in ARTIKEL if g["slug"] in a.get("geraete", ()))
     standby_html = ""
     if g.get("standby_w"):
         sb = standby_kwh(g)
@@ -726,6 +756,8 @@ def geraeteseite(ctx, g, geraete):
   </div>
   <p class="empfehlung-titel">Passend dazu</p>
   {produkt_karte(s, p['label'], p['text'], p['query'], produkt_bild(p['label']))}
+  {'' if g['slug'] in FEST_ANGESCHLOSSEN else messgeraet_karte(s)}
+  {ratgeber}
 </section>
 <section class="abschnitt">
   <span class="overline">Vergleich</span>
@@ -968,6 +1000,10 @@ def datenschutz_seite(ctx):
     if ctx["umami_id"]:
         statistik = """<h2>Besucherstatistik (Umami)</h2>
 <p>Um zu verstehen, welche Seiten und Funktionen hilfreich sind, nutzt diese Website den Statistikdienst Umami Cloud (umami.is). Umami setzt keine Cookies, speichert nichts auf deinem Gerät und erstellt keine Nutzerprofile. Erfasst werden zusammengefasst und ohne Personenbezug: aufgerufene Seite, Verweildauer, verweisende Website, Gerätetyp, Browser, Betriebssystem, Land sowie Aktionen wie „Quiz beendet“ oder „Amazon-Link angeklickt“. Deine IP-Adresse wird nicht gespeichert. Rechtsgrundlage ist unser berechtigtes Interesse an einer nutzerfreundlichen Website (Art. 6 Abs. 1 lit. f DSGVO).</p>"""
+    tarif = ""
+    if ctx["tarif_link"]:
+        tarif = f"""<h2>Partnerlink zum Tarifvergleich</h2>
+<p>Die Seiten zum Tarifwechsel enthalten einen Partnerlink zum Stromtarif-Vergleich von {e(ctx['tarif_anbieter'])}. Er wird über das Partnernetzwerk Awin (AWIN AG, Eichhornstraße 3, 10785 Berlin) vermittelt. Erst wenn du den Link anklickst, gelangst du zum Vergleichsportal; dabei können Awin und {e(ctx['tarif_anbieter'])} Cookies setzen, um einen Tarifwechsel diesem Link zuzuordnen. Schließt du einen Vertrag ab, erhalten wir eine Provision. Es gelten die Datenschutzbestimmungen von Awin und {e(ctx['tarif_anbieter'])}.</p>"""
     werbung = ""
     if ctx["adsense"]:
         werbung = """<h2>Google AdSense</h2>
@@ -986,6 +1022,7 @@ def datenschutz_seite(ctx):
 <p>Damit die Seite als App installiert und offline genutzt werden kann, speichert ein sogenannter Service Worker Seiten und Dateien dieser Website im Zwischenspeicher deines Browsers. Dabei werden keine personenbezogenen Daten erhoben.</p>
 <h2>Amazon-Partnerprogramm</h2>
 <p>Diese Website enthält Links zu Amazon.de. Als Teilnehmer des Amazon-Partnerprogramms (Amazon Europe Core S.à r.l. und weitere Amazon-Gesellschaften) erhalten wir für qualifizierte Käufe eine Provision. Erst wenn du einen solchen Link anklickst, gelangst du zu Amazon; Amazon kann dann Cookies setzen, um die Herkunft der Bestellung nachzuvollziehen. Es gelten die Datenschutzbestimmungen von Amazon.</p>
+{tarif}
 {werbung}
 <h2>Deine Rechte</h2>
 <p>Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch sowie das Recht auf Beschwerde bei einer Datenschutz-Aufsichtsbehörde.</p>
@@ -1799,7 +1836,7 @@ def wissen_uebersicht(ctx):
 {messgeraet_karte(s)}
 """
     return s, layout(s, "Strom-Wissen: Ratgeber zu Verbrauch, Kosten und Strom sparen",
-                     "Einfach erklärt: Watt und kWh, Standby, Stromzähler ablesen, Energielabel, 30 Spartipps und normaler Stromverbrauch.",
+                     "Einfach erklärt: Heizlüfter-Kosten, Heizdecke, Elektroheizungen, Kühlschrank, Standby, Energielabel, 30 Spartipps und normaler Stromverbrauch.",
                      inhalt, "wissen")
 
 
@@ -1814,6 +1851,10 @@ def wissen_artikel(ctx, a):
     woerter = sum(len(h.split()) + len(x.split()) for h, x in abschnitte)
     minuten = max(1, round(woerter / 200))
     cta_text, cta_ziel = a["werkzeug"]
+    produkte = ""
+    if a.get("produkte"):
+        produkte = '<p class="empfehlung-titel">Passend dazu</p>' + "".join(
+            produkt_karte(s, label, text, query, produkt_bild(label)) for label, text, query in a["produkte"])
     weitere = [x for x in ARTIKEL if x["slug"] != a["slug"]]
     inhalt = f"""
 <div class="lesefortschritt" aria-hidden="true"><span data-lesefortschritt data-artikel-slug="{a['slug']}"></span></div>
@@ -1827,6 +1868,8 @@ def wissen_artikel(ctx, a):
 <nav class="chip-reihe chip-scroll inhaltsverzeichnis" aria-label="Inhalt">{toc}</nav>
 <article class="artikel-text">{text}</article>
 <a class="cta-karte ripple" href="{s.link(cta_ziel)}"><span class="cta-icon">{icon('wrench')}</span><span><small>Jetzt ausprobieren</small><strong>{e(cta_text)}</strong></span>{icon('chevron')}</a>
+{partner_karte(s) if a.get("tarif_partner") else ""}
+{produkte}
 {messgeraet_karte(s)}
 {faq_html(fragen)}
 <section class="abschnitt">
@@ -2044,6 +2087,7 @@ def tarif_seite(ctx):
     {zahlenfeld("bonus", "Einmaliger Bonus", 50, "€")}
   </div>
 </form>
+{partner_karte(s, "Noch kein neues Angebot? Vergleiche Tarife für deine Postleitzahl und trag Arbeits- und Grundpreis oben ein – dann siehst du sofort, was der Wechsel bringt.")}
 <section class="abschnitt"><span class="overline">Kosten im Vergleich</span><h2>Was du pro Jahr zahlst</h2>{kosten_balken("tarif")}</section>
 <a class="cta-karte ripple" href="{s.link('wissen/stromanbieter-wechseln/')}"><span class="cta-icon">{icon('book')}</span><span><small>Ratgeber</small><strong>Stromanbieter wechseln – so geht's</strong></span>{icon('chevron')}</a>
 {faq_html(faq)}
@@ -2358,6 +2402,9 @@ def baue(ziel, strict=False, heute=None, cfg=None):
         "adsense": (cfg.get("adsense_client_id") or "").strip(),
         "umami_id": (cfg.get("umami_website_id") or "").strip(),
         "umami_script": (cfg.get("umami_script") or "https://cloud.umami.is/script.js").strip(),
+        "tarif_link": (cfg.get("tarifvergleich_partner_link") or "").strip(),
+        "tarif_anbieter": (cfg.get("tarifvergleich_partner_name") or "Check24").strip(),
+        "pinterest": (cfg.get("pinterest_domain_verify") or "").strip(),
         "impressum": cfg.get("impressum", {}),
         "fehlend": fehlend,
         "jahr": heute.year,

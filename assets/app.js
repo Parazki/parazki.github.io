@@ -42,10 +42,13 @@
   // Besucherstatistik (Umami, ohne Cookies) – nur aktiv, wenn in config.json eine Website-ID steht
   const zaehle = (name, daten) => { try { if (window.umami && window.umami.track) window.umami.track(name, daten); } catch (e) { /* egal */ } };
   document.addEventListener("click", (ev) => {
-    const link = ev.target.closest('a[href*="amazon.de"]');
+    const link = ev.target.closest('a[href*="amazon.de"], a[data-partner]');
     if (!link) return;
-    const karte = link.closest(".produkt, .sp-produkt, .massnahme");
-    zaehle("amazon-klick", { produkt: karte ? $("h3", karte).textContent : link.textContent, seite: location.pathname });
+    // Titel der Karte: h2 auf Geräteseiten, h3 bei Spar-Produkten, fett im Spar-Check
+    const karte = link.closest(".produkt, .sp-produkt, .massnahme, .partner-karte");
+    const titel = karte && $(".produkt-titel, h2, h3, strong", karte);
+    const name = link.dataset.partner ? "partner-klick" : "amazon-klick";
+    zaehle(name, { produkt: (titel || link).textContent.trim(), seite: location.pathname });
   });
 
   // Sanfter Zahlenwechsel für große Ergebniswerte
